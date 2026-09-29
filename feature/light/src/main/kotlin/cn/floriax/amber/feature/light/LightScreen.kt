@@ -1,26 +1,38 @@
 package cn.floriax.amber.feature.light
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cn.floriax.amber.domain.device.ConnectionState
+import cn.floriax.amber.feature.light.components.DigitPreview
+import cn.floriax.amber.feature.light.components.HueWheel
 import cn.floriax.amber.shared.designsystem.component.AmberTopBar
 import cn.floriax.amber.shared.designsystem.component.ConnectionPill
 import cn.floriax.amber.shared.ui.ext.collectState
 
 /**
- * Light screen placeholder.
+ * Light screen placeholder: digit tube preview card.
  *
  * @author WangZhiYao
  * @since 2026/9/29
@@ -48,9 +60,61 @@ fun LightScreen(modifier: Modifier = Modifier, viewModel: LightViewModel = viewM
         // Status bar inset is consumed by the outer Scaffold.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .padding(padding))
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // Digit tube preview card.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.light_digits_preview),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = stringResource(R.string.light_sync),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                        Switch(
+                            checked = state.sameColor,
+                            onCheckedChange = viewModel::setSameColor,
+                        )
+                    }
+                    DigitPreview(
+                        hues = state.backlight.hues,
+                        saturations = state.backlight.saturations,
+                        colonBlink = state.colonBlink,
+                        selectable = !state.sameColor,
+                        selectedGroup = state.selectedGroup,
+                        onGroupTap = viewModel::selectGroup,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
+            }
+
+            // Hue wheel card.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    HueWheel(
+                        hueByte = state.backlight.hues[if (state.sameColor) 0 else state.selectedGroup],
+                        onHueChangeFinished = viewModel::setHueDegrees,
+                    )
+                }
+            }
+        }
     }
 }
 

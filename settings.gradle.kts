@@ -28,6 +28,7 @@ include(":app")
 include(":core:common")
 
 include(":domain:device")
+include(":domain:light")
 
 include(":feature:clock")
 include(":feature:light")

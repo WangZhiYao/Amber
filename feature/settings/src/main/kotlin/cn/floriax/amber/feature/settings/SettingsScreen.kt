@@ -65,6 +65,7 @@ fun SettingsScreen(
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
                         text = stringResource(R.string.settings_device_card),
+                        style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
                     state.defaultDevice?.let { device ->
@@ -106,6 +107,7 @@ fun SettingsScreen(
                     Column {
                         Text(
                             text = stringResource(R.string.settings_pref_card),
+                            style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
                         Text(
@@ -130,6 +132,7 @@ fun SettingsScreen(
                 ) {
                     Text(
                         text = stringResource(R.string.settings_dev_card),
+                        style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
                     Spacer(modifier = Modifier.weight(1f))
