@@ -39,10 +39,14 @@ import java.time.LocalTime
 import kotlin.time.Duration.Companion.milliseconds
 import android.graphics.Color as AndroidColor
 
-/** Lamp preview color: H(byte) + S(byte), V = 255. */
-internal fun lampColor(hueByte: Int, saturation: Int): Color = Color(
+/** Lamp preview color: H(byte) + S(byte) + V(brightness byte). */
+internal fun lampColor(hueByte: Int, saturation: Int, brightness: Int): Color = Color(
     AndroidColor.HSVToColor(
-        floatArrayOf(hueByte.toHueDegrees().toFloat(), saturation / 255f, 1f),
+        floatArrayOf(
+            hueByte.toHueDegrees().toFloat(),
+            saturation / 255f,
+            brightness.coerceIn(0, 255) / 255f,
+        ),
     ),
 )
 
@@ -50,10 +54,13 @@ internal fun lampColor(hueByte: Int, saturation: Int): Color = Color(
 internal fun Int.toHueDegrees(): Int = this * 360 / 256
 
 /** IN-12 tube aspect ratio (height ≈ 1.8 × width). */
-private val TubeAspectRatio = 5f / 9f
+private val TubeAspectRatio = 21f / 31f
 
 /** Fixed digit glow color (gas discharge orange). */
 private val NixieGlow = Color(0xFFFFA652)
+
+/** Backlight veil opacity over the tube base. */
+private const val BacklightVeilAlpha = 0.16f
 
 /**
  * Digit tube preview: HH:MM, four tubes, blinking colon. Tubes are
@@ -66,6 +73,7 @@ private val NixieGlow = Color(0xFFFFA652)
 internal fun DigitPreview(
     hues: List<Int>,
     saturations: List<Int>,
+    brightness: Int,
     colonBlink: Boolean,
     selectable: Boolean,
     selectedGroup: Int,
@@ -90,9 +98,9 @@ internal fun DigitPreview(
     )
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         digits.forEachIndexed { i, d ->
-            val lamp = lampColor(hues[i], saturations[i])
+            val lamp = lampColor(hues[i], saturations[i], brightness)
             val selected = selectable && i == selectedGroup
-            val tubeShape = RoundedCornerShape(50)
+            val tubeShape = RoundedCornerShape(48)
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -101,17 +109,21 @@ internal fun DigitPreview(
                         if (selected) {
                             Modifier.border(2.dp, MaterialTheme.colorScheme.primary, tubeShape)
                         } else {
-                            Modifier
+                            Modifier.border(
+                                1.dp,
+                                MaterialTheme.colorScheme.outlineVariant,
+                                tubeShape
+                            )
                         },
                     )
                     .clip(tubeShape)
-                    .background(lamp.copy(alpha = 0.16f))
+                    .background(lamp.copy(alpha = BacklightVeilAlpha))
                     .clickable(enabled = selectable) { onGroupTap(i) },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     "$d",
-                    fontSize = 96.sp,
+                    fontSize = 88.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
                     color = NixieGlow,

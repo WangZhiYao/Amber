@@ -2,6 +2,8 @@ package cn.floriax.amber.feature.light
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -12,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -27,6 +30,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import cn.floriax.amber.domain.device.ConnectionState
 import cn.floriax.amber.feature.light.components.DigitPreview
 import cn.floriax.amber.feature.light.components.HueWheel
+import cn.floriax.amber.feature.light.components.SliderRow
+import cn.floriax.amber.feature.light.components.toHueDegrees
 import cn.floriax.amber.shared.designsystem.component.AmberTopBar
 import cn.floriax.amber.shared.designsystem.component.ConnectionPill
 import cn.floriax.amber.shared.ui.ext.collectState
@@ -37,10 +42,11 @@ import cn.floriax.amber.shared.ui.ext.collectState
  * @author WangZhiYao
  * @since 2026/9/29
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun LightScreen(modifier: Modifier = Modifier, viewModel: LightViewModel = viewModel()) {
     val state by viewModel.collectState()
+    val connected = state.connection == ConnectionState.CONNECTED
 
     Scaffold(
         modifier = modifier,
@@ -91,6 +97,7 @@ fun LightScreen(modifier: Modifier = Modifier, viewModel: LightViewModel = viewM
                     DigitPreview(
                         hues = state.backlight.hues,
                         saturations = state.backlight.saturations,
+                        brightness = state.backlight.brightness,
                         colonBlink = state.colonBlink,
                         selectable = !state.sameColor,
                         selectedGroup = state.selectedGroup,
@@ -108,10 +115,76 @@ fun LightScreen(modifier: Modifier = Modifier, viewModel: LightViewModel = viewM
                         .padding(12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    val hueIndex = if (state.sameColor) 0 else state.selectedGroup
                     HueWheel(
-                        hueByte = state.backlight.hues[if (state.sameColor) 0 else state.selectedGroup],
+                        hueByte = state.backlight.hues[hueIndex],
+                        enabled = connected && state.backlight.mode.supportsCustomColor,
                         onHueChangeFinished = viewModel::setHueDegrees,
                     )
+                    if (state.backlight.mode.supportsCustomColor) {
+                        Text(
+                            text = if (state.sameColor) {
+                                stringResource(
+                                    R.string.light_hue,
+                                    state.backlight.hues[0].toHueDegrees(),
+                                )
+                            } else {
+                                stringResource(
+                                    R.string.light_group_hue,
+                                    state.selectedGroup + 1,
+                                    state.backlight.hues[hueIndex].toHueDegrees(),
+                                )
+                            },
+                            modifier = Modifier.padding(top = 4.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.light_mode_no_custom),
+                            modifier = Modifier.padding(top = 4.dp),
+                            color = MaterialTheme.colorScheme.outline,
+                        )
+                    }
+                }
+            }
+
+            // Parameter card: contrast and brightness sliders, mode chips.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    SliderRow(
+                        label = stringResource(R.string.light_contrast),
+                        value = state.backlight.saturations[if (state.sameColor) 0 else state.selectedGroup],
+                        enabled = connected && state.backlight.mode.supportsCustomColor,
+                        onValueChange = viewModel::setSaturation,
+                        onFinish = viewModel::setSaturation,
+                    )
+                    SliderRow(
+                        label = stringResource(R.string.light_brightness),
+                        value = state.backlight.brightness,
+                        enabled = connected,
+                        onValueChange = viewModel::setBrightness,
+                        onFinish = viewModel::setBrightness,
+                    )
+                    Text(
+                        text = stringResource(R.string.light_mode),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        BACKLIGHT_MODE_UI_ORDER.forEach { mode ->
+                            FilterChip(
+                                selected = state.backlight.mode == mode,
+                                onClick = { viewModel.setMode(mode) },
+                                label = { Text(stringResource(mode.labelRes)) },
+                                enabled = connected,
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -35,6 +35,7 @@ internal fun Int.hueDegreesToByte(): Int = ((this * 256 + 359) / 360).coerceIn(0
  * ring follows the finger and the hue is committed on release.
  *
  * @param hueByte the current hue byte (0..255).
+ * @param enabled whether the wheel accepts input (dimmed at 0.38 alpha).
  * @param onHueChangeFinished invoked with degrees (0..359) on release/tap.
  * @param modifier modifier for the wheel.
  *
@@ -44,6 +45,7 @@ internal fun Int.hueDegreesToByte(): Int = ((this * 256 + 359) / 360).coerceIn(0
 @Composable
 internal fun HueWheel(
     hueByte: Int,
+    enabled: Boolean,
     onHueChangeFinished: (degrees: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -62,9 +64,9 @@ internal fun HueWheel(
     Canvas(
         modifier = modifier
             .size(220.dp)
-            .alpha(0.95f)
-            .pointerInput(Unit) {
-                detectTapGestures { offset ->
+            .alpha(if (enabled) 0.95f else 0.38f)
+            .pointerInput(enabled) {
+                if (enabled) detectTapGestures { offset ->
                     val (angle, fraction) = radialOf(
                         offset,
                         Offset(size.width / 2f, size.height / 2f),
@@ -77,8 +79,8 @@ internal fun HueWheel(
                     onHueChangeFinished(angle)
                 }
             }
-            .pointerInput(Unit) {
-                detectDragGestures(
+            .pointerInput(enabled) {
+                if (enabled) detectDragGestures(
                     onDragStart = { offset ->
                         dragging = true
                         val (angle, fraction) = radialOf(
