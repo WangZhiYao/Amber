@@ -4,9 +4,7 @@ import androidx.navigation3.runtime.NavKey
 import cn.floriax.amber.shared.ui.navigation.Navigator
 
 /**
- * App-owned [Navigator] implementation: translates navigation events into
- * mutations of the composition-held [NavigationState] (per-top-level-route
- * back stacks).
+ * App-owned [Navigator] implementation over the composition-held [NavigationState].
  *
  * @author WangZhiYao
  * @since 2026/9/29

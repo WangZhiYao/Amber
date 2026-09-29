@@ -29,15 +29,9 @@ data class Tab(
 )
 
 /**
- * App-level navigation composition config: start destination, bottom
- * navigation tabs and the top level route set.
- *
- * Screen content is registered explicitly by each feature's section extension
- * function (lightSection / clockSection / settingsSection) inside
- * MainActivity's entryProvider; feature-internal child routes (e.g. the
- * settings DebugRoute) are owned by their feature. This object only decides
- * which screens are top level, what the bottom bar looks like and which is
- * the start destination.
+ * App-level navigation config: start destination, bottom tabs and the top
+ * level route set. Screen content is registered by each feature's section
+ * extension function; feature-internal child routes stay in their feature.
  *
  * @author WangZhiYao
  * @since 2026/9/29

@@ -4,8 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 
 /**
- * Single source of Amber app icons, so feature modules don't import
- * material-icons paths directly.
+ * Single source of Amber app icons.
  *
  * @author WangZhiYao
  * @since 2026/9/29

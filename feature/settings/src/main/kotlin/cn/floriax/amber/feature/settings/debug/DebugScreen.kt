@@ -13,9 +13,7 @@ import cn.floriax.amber.feature.settings.R
 import cn.floriax.amber.shared.designsystem.component.AmberTopBar
 
 /**
- * Debug log screen placeholder: full-screen (no bottom navigation bar), top
- * bar with back, content left blank, the log list to be filled in later
- * iterations.
+ * Debug log screen placeholder: full-screen, top bar with back.
  *
  * @author WangZhiYao
  * @since 2026/9/29
@@ -35,8 +33,7 @@ fun DebugScreen(
                 backContentDescription = stringResource(R.string.cd_back),
             )
         },
-        // The status bar inset is consumed by the outer MainActivity Scaffold;
-        // zero it here to prevent double application.
+        // Status bar inset is consumed by the outer Scaffold.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
         Box(

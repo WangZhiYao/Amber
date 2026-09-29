@@ -27,9 +27,11 @@ include(":app")
 
 include(":core:common")
 
+include(":domain:device")
+
 include(":feature:clock")
 include(":feature:light")
-
-include(":shared:ui")
-include(":shared:designsystem")
 include(":feature:settings")
+
+include(":shared:designsystem")
+include(":shared:ui")

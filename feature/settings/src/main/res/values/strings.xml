@@ -1,7 +1,21 @@
 <resources>
     <string name="tab_settings">设置</string>
-    <string name="settings_dev_card">开发者</string>
+
+    <!-- Device card -->
+    <string name="settings_device_card">设备</string>
+    <string name="settings_no_device">未绑定设备</string>
+    <string name="settings_device_default">%1$s · 默认</string>
+    <string name="settings_manage_devices">管理设备</string>
+
+    <!-- Preference card -->
+    <string name="settings_pref_card">偏好</string>
+    <string name="settings_auto_sync">连接后自动校时</string>
+
+    <!-- Developer card -->
+    <string name="settings_dev_card">开发</string>
     <string name="settings_debug_panel">调试面板</string>
+
+    <!-- Debug log page -->
     <string name="debug_title">调试日志</string>
     <string name="cd_back">返回</string>
 </resources>

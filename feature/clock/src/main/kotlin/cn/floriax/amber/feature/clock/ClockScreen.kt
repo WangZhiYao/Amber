@@ -12,8 +12,7 @@ import androidx.compose.ui.res.stringResource
 import cn.floriax.amber.shared.designsystem.component.AmberTopBar
 
 /**
- * Clock screen placeholder: top bar only, content left blank, to be filled
- * in later iterations.
+ * Clock screen placeholder.
  *
  * @author WangZhiYao
  * @since 2026/9/29
@@ -26,8 +25,7 @@ fun ClockScreen(modifier: Modifier = Modifier) {
         topBar = {
             AmberTopBar(title = stringResource(R.string.tab_clock))
         },
-        // The status bar inset is consumed by the outer MainActivity Scaffold;
-        // zero it here to prevent double application.
+        // Status bar inset is consumed by the outer Scaffold.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
         Box(

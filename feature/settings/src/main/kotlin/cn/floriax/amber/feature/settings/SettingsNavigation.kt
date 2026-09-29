@@ -13,8 +13,7 @@ import kotlinx.serialization.Serializable
 data object SettingsRoute : NavKey
 
 /**
- * Debug log route: an internal child route of the settings stack; other
- * modules must not be aware of it or navigate to it.
+ * Debug log route: internal to the settings stack.
  *
  * @author WangZhiYao
  * @since 2026/9/29

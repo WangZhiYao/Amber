@@ -15,24 +15,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import cn.floriax.amber.shared.designsystem.icon.AmberIcons
 
 /**
- * Amber top bar: the TopAppBar shared by every screen (top-level tabs and
- * full-screen child pages).
+ * Amber top bar shared by every screen.
  *
- * Screens use this inside their own Scaffold(topBar = ...) together with
- * `contentWindowInsets = WindowInsets(0, 0, 0, 0)`: the status bar inset is
- * consumed by the outer MainActivity Scaffold, the top bar height is provided
- * by the inner Scaffold's innerPadding, so every inset is applied exactly once.
+ * Use inside a screen's own Scaffold(topBar = ...) with
+ * `contentWindowInsets = WindowInsets(0, 0, 0, 0)` (the status bar inset is
+ * consumed by the outer MainActivity Scaffold).
  *
  * @param title the top bar title.
  * @param modifier modifier for the top bar.
- * @param onBack back callback; null hides the back arrow (top-level tab
- *   screens), non-null shows it (full-screen child screens, e.g. the debug
- *   log page).
- * @param backIcon the back arrow icon, defaults to [AmberIcons.ArrowBack].
+ * @param onBack back callback; null hides the back arrow.
+ * @param backIcon the back arrow icon.
  * @param backContentDescription accessibility description of the back arrow.
  * @param actions the action area on the right side of the top bar.
- * @param scrollBehavior scroll behavior (pinned / enterAlways), created by the
- *   screen as needed and also attached to the inner Scaffold's nestedScroll.
+ * @param scrollBehavior scroll behavior attached to the screen's nestedScroll.
  *
  * @author WangZhiYao
  * @since 2026/9/29
@@ -65,8 +60,7 @@ fun AmberTopBar(
         },
         actions = actions,
         scrollBehavior = scrollBehavior,
-        // The status bar inset is consumed by the outer Scaffold; zero it here
-        // to prevent double application.
+        // Status bar inset is consumed by the outer Scaffold.
         windowInsets = WindowInsets(0, 0, 0, 0),
     )
 }

@@ -28,18 +28,12 @@ import cn.floriax.amber.shared.designsystem.theme.AmberTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
- * Root entry point [ComponentActivity] of the application, hosting the Compose root layout
- * and applying the [AmberTheme].
+ * Root entry point [ComponentActivity], hosting the Compose root layout and
+ * the [AmberTheme].
  *
- * Modular Navigation 3 architecture: each feature module exposes an
- * `EntryProviderScope` extension function (`lightSection` / `clockSection` /
- * `settingsSection`, NowInAndroid style); this activity calls them explicitly
- * inside the entry provider, handing the app-owned [StateNavigator] where a
- * feature needs navigation. Each bottom bar tab owns a real back stack held in
- * [cn.floriax.amber.navigation.NavigationState]; tab state survives tab
- * switches, config changes and process death. The debug log page is
- * contributed (and kept internal) by the settings feature and hides the bottom
- * bar while open.
+ * Each bottom bar tab owns a real back stack; tab state survives tab
+ * switches, config changes and process death. The debug log page (internal
+ * to the settings feature) hides the bottom bar while open.
  *
  * @author WangZhiYao
  * @since 2026/9/29
@@ -67,8 +61,7 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
-                        // Hide the bottom bar when a child route (e.g. the settings
-                        // feature's debug log page) is on top of the stack.
+                        // Hide the bottom bar on non-top-level routes.
                         if (Routes.bottomTabs.any { it.key == navigationState.currentKey }) {
                             AmberBottomBar(
                                 selectedKey = navigationState.topLevelRoute,
@@ -89,8 +82,7 @@ class MainActivity : ComponentActivity() {
 }
 
 /**
- * Bottom navigation bar: three top-level tabs, the filled icon is shown for
- * the selected tab.
+ * Bottom navigation bar for the top-level tabs.
  *
  * @author WangZhiYao
  * @since 2026/9/29

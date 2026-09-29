@@ -7,8 +7,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSerializable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.runtime.NavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberNavBackStack
@@ -75,11 +77,10 @@ class NavigationState(
         get() = backStacks[topLevelRoute]?.lastOrNull()
 
     /**
-     * Convert the navigation state into [NavEntry]s that have been decorated with a
-     * `SaveableStateHolder`.
+     * Convert the navigation state into [NavEntry]s decorated with a
+     * `SaveableStateHolder` and an entry-scoped ViewModelStore.
      *
-     * @param entryProvider - the entry provider used to convert the keys in the
-     * back stacks to [NavEntry]s.
+     * @param entryProvider - resolves keys in the back stacks to [NavEntry]s.
      */
     @Composable
     fun toDecoratedEntries(
@@ -89,8 +90,10 @@ class NavigationState(
         // the entries from that stack. When backStacks changes, `rememberDecoratedNavEntries` will
         // be recomposed and a new list of decorated entries is returned.
         val decoratedEntries = backStacks.mapValues { (_, stack) ->
-            val decorators = listOf(
-                rememberSaveableStateHolderNavEntryDecorator<NavKey>(),
+            val decorators = listOf<NavEntryDecorator<NavKey>>(
+                rememberSaveableStateHolderNavEntryDecorator(),
+                // Entry-scoped ViewModelStoreOwner for viewModel() in entry content.
+                rememberViewModelStoreNavEntryDecorator(),
             )
             rememberDecoratedNavEntries(
                 backStack = stack,
@@ -105,10 +108,8 @@ class NavigationState(
     }
 
     /**
-     * Get the top level routes that are currently in use. The start route is always the first
-     * route in the list. This means the user will always exit the app through the starting
-     * route ("exit through home" pattern). The list will contain a maximum of one other route.
-     * Note that even if a top level route is not in use its state is still retained.
+     * Top level routes currently in use: always the start route plus at most
+     * one other ("exit through home" pattern). Unused stacks retain state.
      */
     private fun topLevelRoutesInUse(): List<NavKey> =
         if (topLevelRoute == startRoute) {

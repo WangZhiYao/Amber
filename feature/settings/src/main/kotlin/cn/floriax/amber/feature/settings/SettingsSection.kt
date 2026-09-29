@@ -6,8 +6,7 @@ import cn.floriax.amber.feature.settings.debug.DebugScreen
 import cn.floriax.amber.shared.ui.navigation.Navigator
 
 /**
- * Registers the settings feature's navigation entries, including the
- * feature-internal debug log page.
+ * Registers the settings feature's navigation entries.
  *
  * @author WangZhiYao
  * @since 2026/9/29
