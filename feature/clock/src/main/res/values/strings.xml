@@ -1,3 +1,17 @@
 <resources>
     <string name="tab_clock">时钟</string>
+
+    <!-- Sync card -->
+    <string name="clock_sync_title">校时</string>
+    <string name="clock_sync_hint">以手机时间为准</string>
+    <string name="clock_last_sync">上次校时 %1$s</string>
+    <string name="clock_today">今天 %1$s</string>
+    <string name="clock_syncing">校时中…</string>
+    <string name="clock_sync_now">立即校时</string>
+
+    <!-- Connection pill -->
+    <string name="connection_connected">已连接</string>
+    <string name="connection_connecting">连接中</string>
+    <string name="connection_reconnecting">重连中</string>
+    <string name="connection_disconnected_retry">未连接 · 重试</string>
 </resources>
