@@ -7,10 +7,12 @@ import org.gradle.kotlin.dsl.dependencies
  * Convention plugin for feature modules.
  *
  * Configures Android Library + Hilt + Compose, plus the dependencies shared by every feature
- * module (core:common, shared:ui).
+ * module (core:common, core:navigation, shared:ui).
  *
  * Design note: feature modules are numerous, uniform in shape, and always need DI
  * (@AndroidEntryPoint / @HiltViewModel) and Compose, so both are bundled here.
+ * Every feature also contributes navigation entries to the app's Nav3 entry
+ * provider, so core:navigation is bundled here as well.
  * `amber.android.library` stays minimal and core/shared libraries opt in per module.
  *
  * Usage: `plugins { id("amber.android.feature") }`

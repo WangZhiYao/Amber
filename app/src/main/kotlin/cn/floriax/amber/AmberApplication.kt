@@ -4,7 +4,7 @@ import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
 
 /**
- * Amber 应用入口，启用 Hilt。
+ * Amber application entry point, enables Hilt.
  *
  * @author WangZhiYao
  * @since 2026/9/28

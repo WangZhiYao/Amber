@@ -3,7 +3,7 @@ package cn.floriax.amber.shared.designsystem.theme
 import androidx.compose.material3.Typography
 
 /**
- * 应用字体排印。
+ * App typography.
  *
  * @author WangZhiYao
  * @since 2026/9/28

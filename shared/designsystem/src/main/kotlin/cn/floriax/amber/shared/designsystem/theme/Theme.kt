@@ -11,7 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
 /**
- * 浅色配色方案。
+ * Light color scheme.
  *
  * @author WangZhiYao
  * @since 2026/9/28
@@ -55,7 +55,7 @@ private val lightScheme = lightColorScheme(
 )
 
 /**
- * 深色配色方案。
+ * Dark color scheme.
  *
  * @author WangZhiYao
  * @since 2026/9/28
@@ -99,7 +99,7 @@ private val darkScheme = darkColorScheme(
 )
 
 /**
- * 应用主题（跟随系统深浅色）。
+ * App theme (follows system dark/light mode).
  *
  * @author WangZhiYao
  * @since 2026/9/28

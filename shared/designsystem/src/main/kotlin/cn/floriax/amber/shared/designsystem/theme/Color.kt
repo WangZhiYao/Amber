@@ -2,7 +2,7 @@ package cn.floriax.amber.shared.designsystem.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ---- 浅色方案 ----
+// ---- Light scheme ----
 
 val primaryLight = Color(0xFF7D570D)
 val onPrimaryLight = Color(0xFFFFFFFF)
@@ -40,7 +40,7 @@ val surfaceContainerLight = Color(0xFFF8ECDF)
 val surfaceContainerHighLight = Color(0xFFF2E6D9)
 val surfaceContainerHighestLight = Color(0xFFECE1D4)
 
-// ---- 深色方案 ----
+// ---- Dark scheme ----
 
 val primaryDark = Color(0xFFF0BE6D)
 val onPrimaryDark = Color(0xFF432C00)
