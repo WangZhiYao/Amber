@@ -1,5 +1,8 @@
-package cn.floriax.amber.core.ble
+package cn.floriax.amber.data.device.testing
 
+import cn.floriax.amber.core.ble.BleClient
+import cn.floriax.amber.core.ble.BleConnection
+import cn.floriax.amber.core.ble.BleScanResult
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -7,7 +10,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 
 /**
  * Scriptable BLE fake: connect behavior, notifications and disconnects are
- * all programmable.
+ * all programmable. It is the test double of the BLE layer, kept in the data
+ * layer's test source set because the repository tests are its only
+ * consumers.
  *
  * @author WangZhiYao
  * @since 2026/9/30
