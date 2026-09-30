@@ -256,7 +256,8 @@ fun LightScreen(
                         label = stringResource(R.string.light_brightness),
                         value = state.backlight.brightness,
                         enabled = connected,
-                        onValueChange = viewModel::setBrightness,
+                        // Drag = local preview only; the LED frame goes out on release.
+                        onValueChange = viewModel::previewBrightness,
                         onFinish = viewModel::setBrightness,
                     )
                     Text(
@@ -357,12 +358,13 @@ fun LightScreen(
                         ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    // Contrast targets the same group(s) as the wheel above.
+                    // Contrast targets the same group(s) as the wheel above;
+                    // drag previews locally, the frame goes out on release.
                     SliderRow(
                         label = stringResource(R.string.light_contrast),
                         value = state.backlight.saturations[hueIndex],
                         enabled = true,
-                        onValueChange = viewModel::setSaturation,
+                        onValueChange = viewModel::previewSaturation,
                         onFinish = viewModel::setSaturation,
                         modifier = Modifier.fillMaxWidth(),
                     )

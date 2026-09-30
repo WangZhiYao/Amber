@@ -13,6 +13,7 @@ import cn.floriax.amber.feature.light.components.hueDegreesToByte
 import cn.floriax.amber.shared.ui.base.BaseMVIViewModel
 import cn.floriax.amber.shared.ui.base.IntentContext
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -99,9 +100,15 @@ class LightViewModel @Inject constructor(
     /** Toggles same-color mode; enabling syncs every group to the selected one. */
     fun setSameColor(enabled: Boolean) = intent {
         if (enabled) {
-            // Off → on: sync the selected group's hue to all four.
-            val h = state.backlight.hues[state.selectedGroup]
-            val newBacklight = state.backlight.copy(hues = List(Backlight.GROUP_COUNT) { h })
+            // Off → on: sync the selected group's hue AND saturation to all
+            // four — syncing hues alone kept a per-group contrast difference
+            // alive (e.g. [FF,FF,FF,7A]) and that group rendered visibly
+            // brighter than the others.
+            val i = state.selectedGroup
+            val newBacklight = state.backlight.copy(
+                hues = List(Backlight.GROUP_COUNT) { state.backlight.hues[i] },
+                saturations = List(Backlight.GROUP_COUNT) { state.backlight.saturations[i] },
+            )
             reduce { copy(sameColor = true, backlight = newBacklight) }
             sendBacklight(newBacklight)
         } else {
@@ -130,7 +137,23 @@ class LightViewModel @Inject constructor(
         changeBacklight { copy(hues = hues) }
     }
 
-    /** Applies a saturation byte (0..255) to the edited group(s). */
+    /**
+     * Applies a saturation byte to the edited group(s) **while dragging** —
+     * preview only, no device write. The BLE frame is sent on drag release
+     * ([setSaturation]); writing per drag step flooded the device and made
+     * it respond sluggishly.
+     */
+    fun previewSaturation(value: Int) = intent {
+        val v = value.coerceIn(0, 255)
+        val saturations = if (state.sameColor) {
+            List(Backlight.GROUP_COUNT) { v }
+        } else {
+            state.backlight.saturations.toMutableList().also { it[state.selectedGroup] = v }
+        }
+        reduce { copy(backlight = state.backlight.copy(saturations = saturations)) }
+    }
+
+    /** Applies a saturation byte (0..255) to the edited group(s) — the drag-release commit. */
     fun setSaturation(value: Int) = intent {
         val v = value.coerceIn(0, 255)
         val saturations = if (state.sameColor) {
@@ -141,7 +164,16 @@ class LightViewModel @Inject constructor(
         changeBacklight { copy(saturations = saturations) }
     }
 
-    /** Applies a brightness byte (0..255). */
+    /**
+     * Applies a brightness byte **while dragging** — preview only, no device
+     * write (see [previewSaturation] for why).
+     */
+    fun previewBrightness(value: Int) = intent {
+        val v = value.coerceIn(0, 255)
+        reduce { copy(backlight = state.backlight.copy(brightness = v)) }
+    }
+
+    /** Applies a brightness byte (0..255) — the drag-release commit. */
     fun setBrightness(value: Int) =
         intent { changeBacklight { copy(brightness = value.coerceIn(0, 255)) } }
 
@@ -241,14 +273,36 @@ class LightViewModel @Inject constructor(
         }
     }
 
+    // ---- Conflated backlight write channel ----
+
+    /** Newest backlight waiting to be written while a frame is still in flight. */
+    private var pendingBacklight: Backlight? = null
+
+    /** The drain loop: one write in flight at a time, always the newest value next. */
+    private var backlightWriteJob: Job? = null
+
     /**
-     * Sends the backlight config; failures are split into side effects
-     * (not connected vs. other failures).
+     * Schedules [config] to be written, conflated: while a frame is still
+     * in flight a newer submission replaces an older pending one. Rapid
+     * successive edits used to queue every frame on the BLE write mutex —
+     * the device then replayed stale values seconds after the edit
+     * (dragging down briefly brightened the clock). At most "current +
+     * latest" ever reach the wire.
+     *
+     * Failures surface as side effects (not connected vs. other failures).
      */
-    private suspend fun IntentContext<LightUiState, LightSideEffect>.sendBacklight(
-        config: Backlight,
-    ) {
-        clock.sendBacklight(config).onFailure { postSideEffect(it.toLightSideEffect()) }
+    private fun sendBacklight(config: Backlight) {
+        pendingBacklight = config
+        if (backlightWriteJob?.isActive == true) return
+        backlightWriteJob = viewModelScope.launch {
+            while (pendingBacklight != null) {
+                val next = pendingBacklight!!
+                pendingBacklight = null
+                clock.sendBacklight(next).onFailure { e ->
+                    intent { postSideEffect(e.toLightSideEffect()) }
+                }
+            }
+        }
     }
 
     /** Local optimistic update + send (connection gating lives in the repository). */
