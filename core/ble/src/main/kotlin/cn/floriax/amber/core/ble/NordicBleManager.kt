@@ -34,9 +34,15 @@ class NordicBleManager @Inject constructor(
     @ApplicationIOScope private val scope: CoroutineScope,
 ) : BleClient {
 
+    // Reading the adapter state itself needs Bluetooth permissions; callers
+    // hold them (the UI requests them before scanning). A missing permission
+    // is reported as "off" rather than crashing the check.
     override val isBluetoothEnabled: Boolean
-        get() = context.getSystemService(android.bluetooth.BluetoothManager::class.java)
-            ?.adapter?.isEnabled == true
+        @SuppressLint("MissingPermission")
+        get() = runCatching {
+            context.getSystemService(android.bluetooth.BluetoothManager::class.java)
+                ?.adapter?.isEnabled == true
+        }.getOrDefault(false)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun scan(): Flow<BleScanResult> = BleScanner(context).scan()

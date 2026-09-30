@@ -1,4 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+        BLE permissions are declared by this module (merged into the app's
+        manifest at build time): the knowledge of what the BLE stack needs
+        belongs with the code that uses it, so any consumer gets a working
+        setup without repeating the list.
+
+        Runtime requests are a UI concern and live in
+        shared/ui/.../permission/BlePermissions.kt — keep the two in sync.
+    -->
+
+    <!-- Android 12+: runtime permissions. neverForLocation keeps scanning
+         usable without declaring location access: this module derives no
+         location from scan results. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!-- Android 11 and below: every adapter/connection call requires the
+         legacy Bluetooth permissions (the platform throws
+         "Need BLUETOOTH permission" without them), and scanning additionally
+         requires location access. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" />
 
 </manifest>
