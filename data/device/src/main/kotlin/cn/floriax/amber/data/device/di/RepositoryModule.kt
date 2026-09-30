@@ -3,8 +3,10 @@ package cn.floriax.amber.data.device.di
 import cn.floriax.amber.core.ble.BleClient
 import cn.floriax.amber.core.common.di.qualifier.ApplicationMainScope
 import cn.floriax.amber.data.device.logger.FrameLogAggregator
+import cn.floriax.amber.data.device.repository.BleDeviceScanner
 import cn.floriax.amber.data.device.repository.ClockRepositoryImpl
 import cn.floriax.amber.domain.device.ClockRepository
+import cn.floriax.amber.domain.device.DeviceScanner
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -27,6 +29,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindClockRepository(impl: ClockRepositoryImpl): ClockRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDeviceScanner(impl: BleDeviceScanner): DeviceScanner
 
     companion object {
         @Provides
