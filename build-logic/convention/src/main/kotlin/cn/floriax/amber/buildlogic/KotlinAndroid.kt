@@ -28,6 +28,13 @@ internal fun Project.configureKotlinAndroid() {
             sourceCompatibility = AppConfig.JAVA_VERSION
             targetCompatibility = AppConfig.JAVA_VERSION
         }
+
+        testOptions {
+            // android.util.Log calls in classes under unit test (e.g. the
+            // frame log aggregator) are stubbed to defaults instead of
+            // throwing "not mocked".
+            unitTests.isReturnDefaultValues = true
+        }
     }
 
     configureTestDependencies()
@@ -67,6 +74,13 @@ internal fun Project.configureKotlinAndroidApplication() {
         compileOptions {
             sourceCompatibility = AppConfig.JAVA_VERSION
             targetCompatibility = AppConfig.JAVA_VERSION
+        }
+
+        testOptions {
+            // android.util.Log calls in classes under unit test (e.g. the
+            // frame log aggregator) are stubbed to defaults instead of
+            // throwing "not mocked".
+            unitTests.isReturnDefaultValues = true
         }
     }
 
