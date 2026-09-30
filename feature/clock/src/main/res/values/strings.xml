@@ -9,6 +9,14 @@
     <string name="clock_syncing">校时中…</string>
     <string name="clock_sync_now">立即校时</string>
 
+    <!-- Timer cards -->
+    <string name="clock_timer_card">定时开关机</string>
+    <string name="clock_power_on">定时开机</string>
+    <string name="clock_power_off">定时关机</string>
+    <string name="clock_alarm_card">闹钟</string>
+    <string name="common_confirm">确定</string>
+    <string name="common_cancel">取消</string>
+
     <!-- Connection pill -->
     <string name="connection_connected">已连接</string>
     <string name="connection_connecting">连接中</string>

@@ -4,6 +4,7 @@ import cn.floriax.amber.domain.device.ConnectionState
 import cn.floriax.amber.shared.ui.base.BaseMVIViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
+import java.time.LocalTime
 import javax.inject.Inject
 
 /**
@@ -32,6 +33,33 @@ class ClockViewModel @Inject constructor() : BaseMVIViewModel<ClockUiState, Noth
                     lastSyncAt = System.currentTimeMillis(),
                 )
             }
+        }
+    }
+
+    /** Sets one timer time (placeholder: local state only). */
+    fun setTimer(kind: TimerKind, value: LocalTime) {
+        intent {
+            val timers = when (kind) {
+                TimerKind.POWER_ON -> state.timers.copy(powerOn = value)
+                TimerKind.POWER_OFF -> state.timers.copy(powerOff = value)
+                TimerKind.ALARM -> state.timers.copy(alarm = value)
+            }
+            reduce { state.copy(timers = timers) }
+        }
+    }
+
+    /** Sets one function switch (placeholder: local state only). */
+    fun setSwitch(field: SwitchField, value: Boolean) {
+        intent {
+            val switches = when (field) {
+                SwitchField.POWER_ON -> state.switches.copy(powerOnEnabled = value)
+                SwitchField.POWER_OFF -> state.switches.copy(powerOffEnabled = value)
+                SwitchField.ALARM -> state.switches.copy(alarmEnabled = value)
+                SwitchField.COLON_BLINK -> state.switches.copy(colonBlink = value)
+                SwitchField.MUTE -> state.switches.copy(mute = value)
+                SwitchField.LOCK_REMOTE -> state.switches.copy(lockRemote = value)
+            }
+            reduce { state.copy(switches = switches) }
         }
     }
 }

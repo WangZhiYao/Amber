@@ -2,20 +2,31 @@ package cn.floriax.amber.feature.clock
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -26,8 +37,10 @@ import cn.floriax.amber.shared.designsystem.component.AmberTopBar
 import cn.floriax.amber.shared.designsystem.component.ConnectionPill
 import cn.floriax.amber.shared.ui.ext.collectState
 import java.time.Instant
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * Clock screen placeholder: time sync card.
@@ -105,7 +118,105 @@ fun ClockScreen(modifier: Modifier = Modifier, viewModel: ClockViewModel = viewM
                     }
                 }
             }
+
+            // Power timer card.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.clock_timer_card),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    TimerRow(
+                        label = stringResource(R.string.clock_power_on),
+                        time = state.timers.powerOn,
+                        enabled = state.switches.powerOnEnabled,
+                        connected = connected,
+                        onTimeChange = { viewModel.setTimer(TimerKind.POWER_ON, it) },
+                        onEnabledChange = { viewModel.setSwitch(SwitchField.POWER_ON, it) },
+                    )
+                    TimerRow(
+                        label = stringResource(R.string.clock_power_off),
+                        time = state.timers.powerOff,
+                        enabled = state.switches.powerOffEnabled,
+                        connected = connected,
+                        onTimeChange = { viewModel.setTimer(TimerKind.POWER_OFF, it) },
+                        onEnabledChange = { viewModel.setSwitch(SwitchField.POWER_OFF, it) },
+                    )
+                }
+            }
+
+            // Alarm card.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = stringResource(R.string.clock_alarm_card),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    TimerRow(
+                        label = stringResource(R.string.clock_alarm_card),
+                        time = state.timers.alarm,
+                        enabled = state.switches.alarmEnabled,
+                        connected = connected,
+                        onTimeChange = { viewModel.setTimer(TimerKind.ALARM, it) },
+                        onEnabledChange = { viewModel.setSwitch(SwitchField.ALARM, it) },
+                    )
+                }
+            }
         }
+    }
+}
+
+/** Timer row: label, HH:MM picker button and enable switch. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimerRow(
+    label: String,
+    time: LocalTime,
+    enabled: Boolean,
+    connected: Boolean,
+    onTimeChange: (LocalTime) -> Unit,
+    onEnabledChange: (Boolean) -> Unit,
+) {
+    var showPicker by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label)
+        Spacer(modifier = Modifier.weight(1f))
+        TextButton(onClick = { showPicker = true }, enabled = connected) {
+            Text(String.format(Locale.getDefault(), "%02d:%02d", time.hour, time.minute))
+        }
+        Switch(
+            checked = enabled,
+            onCheckedChange = onEnabledChange,
+            enabled = connected,
+        )
+    }
+    if (showPicker) {
+        val pickerState = rememberTimePickerState(
+            initialHour = time.hour,
+            initialMinute = time.minute,
+            is24Hour = true,
+        )
+        AlertDialog(
+            onDismissRequest = { showPicker = false },
+            title = { Text(label) },
+            text = { TimePicker(state = pickerState) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showPicker = false
+                    onTimeChange(LocalTime.of(pickerState.hour, pickerState.minute))
+                }) { Text(stringResource(R.string.common_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
     }
 }
 
