@@ -34,7 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import cn.floriax.amber.domain.device.ConnectionState
+import cn.floriax.amber.domain.device.model.ConnectionState
 import cn.floriax.amber.shared.designsystem.component.AmberTopBar
 import cn.floriax.amber.shared.designsystem.component.ConnectionPill
 import cn.floriax.amber.shared.ui.ext.collectState

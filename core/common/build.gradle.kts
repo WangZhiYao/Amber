@@ -1,5 +1,6 @@
 plugins {
     id("amber.android.library")
+    id("amber.hilt")
 }
 
 android {

@@ -1,4 +1,4 @@
-package cn.floriax.amber.domain.device
+package cn.floriax.amber.domain.device.model
 
 /**
  * Connection state of a glow clock device.

@@ -1,7 +1,7 @@
 package cn.floriax.amber.feature.settings
 
-import cn.floriax.amber.domain.device.ClockDevice
-import cn.floriax.amber.domain.device.ConnectionState
+import cn.floriax.amber.domain.device.model.ClockDevice
+import cn.floriax.amber.domain.device.model.ConnectionState
 
 /**
  * Settings screen state (placeholder values).

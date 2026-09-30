@@ -1,6 +1,6 @@
 package cn.floriax.amber.feature.clock
 
-import cn.floriax.amber.domain.device.ConnectionState
+import cn.floriax.amber.domain.device.model.ConnectionState
 import cn.floriax.amber.shared.ui.base.BaseMVIViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay

@@ -1,6 +1,6 @@
 package cn.floriax.amber.feature.light
 
-import cn.floriax.amber.domain.device.ConnectionState
+import cn.floriax.amber.domain.device.model.ConnectionState
 import cn.floriax.amber.domain.light.Backlight
 import cn.floriax.amber.domain.light.BacklightMode
 import cn.floriax.amber.domain.light.Preset

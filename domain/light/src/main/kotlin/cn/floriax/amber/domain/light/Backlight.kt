@@ -27,7 +27,7 @@ data class Backlight(
     companion object {
         const val GROUP_COUNT = 4
 
-        /** Power-on defaults observed on a real device (PROTOCOL.md §0). */
+        /** Power-on defaults observed on a real device. */
         val DEFAULT = Backlight(
             hues = List(GROUP_COUNT) { 0 },
             saturations = List(GROUP_COUNT) { 255 },

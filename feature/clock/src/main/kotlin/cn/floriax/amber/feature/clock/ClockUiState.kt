@@ -2,7 +2,7 @@ package cn.floriax.amber.feature.clock
 
 import cn.floriax.amber.domain.clock.SwitchConfig
 import cn.floriax.amber.domain.clock.TimeConfig
-import cn.floriax.amber.domain.device.ConnectionState
+import cn.floriax.amber.domain.device.model.ConnectionState
 
 /**
  * Clock screen state (placeholder values).

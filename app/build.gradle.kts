@@ -13,6 +13,8 @@ dependencies {
 
     implementation(project(":shared:ui"))
 
+    implementation(project(":data:device"))
+
     implementation(project(":feature:light"))
     implementation(project(":feature:clock"))
     implementation(project(":feature:settings"))
