@@ -2,6 +2,7 @@ package cn.floriax.amber.feature.light
 
 import cn.floriax.amber.domain.device.ConnectionState
 import cn.floriax.amber.domain.light.Backlight
+import cn.floriax.amber.domain.light.Preset
 
 /**
  * Light screen state (placeholder values).
@@ -22,4 +23,14 @@ data class LightUiState(
     val sameColor: Boolean = true,
     /** The digit group targeted by edits when not in same-color mode. */
     val selectedGroup: Int = 0,
+    /** Saved presets. */
+    val presets: List<Preset> = emptyList(),
+    /** Non-null → apply-confirmation dialog for that preset. */
+    val applyConfirmPreset: Preset? = null,
+    /** Whether the save-preset sheet is open. */
+    val showSaveSheet: Boolean = false,
+    /** Name typed in the save-preset sheet. */
+    val saveName: String = "",
+    /** Non-null → long-press manage menu for that preset. */
+    val managePreset: Preset? = null,
 )

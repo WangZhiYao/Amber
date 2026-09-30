@@ -3,6 +3,7 @@ package cn.floriax.amber.feature.light
 import cn.floriax.amber.domain.device.ConnectionState
 import cn.floriax.amber.domain.light.Backlight
 import cn.floriax.amber.domain.light.BacklightMode
+import cn.floriax.amber.domain.light.Preset
 import cn.floriax.amber.feature.light.components.hueDegreesToByte
 import cn.floriax.amber.shared.ui.base.BaseMVIViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,6 +18,12 @@ import javax.inject.Inject
 @HiltViewModel
 class LightViewModel @Inject constructor() :
     BaseMVIViewModel<LightUiState, Nothing>() {
+
+    /** Next preset id (placeholder: local list, no persistence). */
+    private var nextPresetId = 1L
+
+    /** Fallback name for a blank save-preset input. */
+    private var saveFallbackName = ""
 
     override val initialState
         get() = LightUiState(
@@ -104,8 +111,105 @@ class LightViewModel @Inject constructor() :
 
     /** Applies the display mode. */
     fun setMode(mode: BacklightMode) {
+        intent { reduce { state.copy(backlight = state.backlight.copy(mode = mode)) } }
+    }
+
+    // ---- Presets (placeholder: local state only, no persistence) ----
+
+    /** Opens the apply-confirmation dialog for a preset. */
+    fun onPresetClick(preset: Preset) {
+        intent { reduce { state.copy(applyConfirmPreset = preset) } }
+    }
+
+    /** Dismisses the apply-confirmation dialog. */
+    fun onApplyDismiss() {
+        intent { reduce { state.copy(applyConfirmPreset = null) } }
+    }
+
+    /** Applies the confirmed preset: whole-backlight replacement, same-color re-derived. */
+    fun onApplyConfirm() {
         intent {
-            reduce { state.copy(backlight = state.backlight.copy(mode = mode)) }
+            val preset = state.applyConfirmPreset ?: return@intent
+            reduce {
+                state.copy(
+                    applyConfirmPreset = null,
+                    backlight = preset.backlight,
+                    sameColor = preset.backlight.hues.distinct().size == 1,
+                )
+            }
+        }
+    }
+
+    /** Opens the save sheet with a default name (computed in the UI layer). */
+    fun onSaveOpen(defaultName: String, fallbackName: String) {
+        saveFallbackName = fallbackName
+        intent { reduce { state.copy(showSaveSheet = true, saveName = defaultName) } }
+    }
+
+    /** Edits the preset name in the save sheet. */
+    fun onSaveNameChange(name: String) {
+        intent { reduce { state.copy(saveName = name) } }
+    }
+
+    /** Dismisses the save sheet. */
+    fun onSaveDismiss() {
+        intent { reduce { state.copy(showSaveSheet = false) } }
+    }
+
+    /** Confirms saving: snapshots the current backlight into a new preset. */
+    fun onSaveConfirm() {
+        intent {
+            val name = state.saveName.ifBlank { saveFallbackName }
+            val preset = Preset(
+                id = nextPresetId++,
+                name = name,
+                backlight = state.backlight,
+                orderIndex = state.presets.size,
+            )
+            reduce {
+                state.copy(
+                    showSaveSheet = false,
+                    presets = state.presets + preset,
+                )
+            }
+        }
+    }
+
+    /** Opens the long-press manage menu for a preset. */
+    fun onPresetLongPress(preset: Preset) {
+        intent { reduce { state.copy(managePreset = preset) } }
+    }
+
+    /** Dismisses the manage menu. */
+    fun onMenuDismiss() {
+        intent { reduce { state.copy(managePreset = null) } }
+    }
+
+    /** Renames the managed preset. */
+    fun onRenamePreset(name: String) {
+        intent {
+            val target = state.managePreset ?: return@intent
+            reduce {
+                state.copy(
+                    managePreset = null,
+                    presets = state.presets.map {
+                        if (it.id == target.id) it.copy(name = name) else it
+                    },
+                )
+            }
+        }
+    }
+
+    /** Deletes the managed preset. */
+    fun onDeletePreset() {
+        intent {
+            val target = state.managePreset ?: return@intent
+            reduce {
+                state.copy(
+                    managePreset = null,
+                    presets = state.presets.filterNot { it.id == target.id },
+                )
+            }
         }
     }
 }

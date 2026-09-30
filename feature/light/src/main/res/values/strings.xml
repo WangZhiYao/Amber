@@ -14,6 +14,31 @@
     <string name="backlight_mode_marquee">跑马</string>
     <string name="backlight_mode_rainbow">彩虹</string>
 
+    <!-- Presets -->
+    <string name="light_presets">预设</string>
+    <string name="light_save_preset">存为预设</string>
+    <string name="light_apply_preset">应用预设</string>
+    <string name="light_apply_confirm">将灯光切换为「%1$s」？</string>
+    <string name="light_save_summary">色相 %1$d° · 对比度 %2$d · 亮度 %3$d · %4$s</string>
+    <string name="light_save_summary_multi">四组独立色相 · 对比度 %1$d · 亮度 %2$d · %3$s</string>
+    <string name="light_delete_preset">删除「%1$s」</string>
+    <string name="light_save_name">保存名称</string>
+    <string name="preset_default_name">%1$s · %2$s</string>
+    <string name="preset_fallback_name">预设</string>
+    <string name="hue_red">红</string>
+    <string name="hue_orange">橙</string>
+    <string name="hue_yellow">黄</string>
+    <string name="hue_green">绿</string>
+    <string name="hue_cyan">青</string>
+    <string name="hue_blue">蓝</string>
+    <string name="hue_purple">紫</string>
+    <string name="hue_pink">粉</string>
+    <string name="common_apply">应用</string>
+    <string name="common_cancel">取消</string>
+    <string name="common_save">保存</string>
+    <string name="common_rename">重命名</string>
+    <string name="common_name">名称</string>
+
     <!-- Connection pill -->
     <string name="connection_connected">已连接</string>
     <string name="connection_connecting">连接中</string>

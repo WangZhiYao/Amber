@@ -1,6 +1,9 @@
 package cn.floriax.amber.feature.light
 
 import android.widget.Toast
+import androidx.annotation.StringRes
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -13,14 +16,25 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cn.floriax.amber.domain.device.ConnectionState
 import cn.floriax.amber.feature.light.components.DigitPreview
+import cn.floriax.amber.feature.light.components.HueSwatchRow
 import cn.floriax.amber.feature.light.components.HueWheel
 import cn.floriax.amber.feature.light.components.SliderRow
 import cn.floriax.amber.feature.light.components.toHueDegrees
@@ -48,7 +63,11 @@ import cn.floriax.amber.shared.ui.ext.collectState
  * @author WangZhiYao
  * @since 2026/9/29
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalLayoutApi::class,
+    ExperimentalFoundationApi::class
+)
 @Composable
 fun LightScreen(modifier: Modifier = Modifier, viewModel: LightViewModel = viewModel()) {
     val state by viewModel.collectState()
@@ -58,6 +77,18 @@ fun LightScreen(modifier: Modifier = Modifier, viewModel: LightViewModel = viewM
     // Hue sheet: non-null tapped group = open. Any tube opens the sheet when
     // the mode supports custom colors; otherwise a toast explains why not.
     var hueSheetGroup by remember { mutableStateOf<Int?>(null) }
+
+    // Default preset name: mode label + color name of the edited group's hue.
+    val presetDefaultName = stringResource(
+        R.string.preset_default_name,
+        stringResource(state.backlight.mode.labelRes),
+        stringResource(
+            hueNameRes(
+                state.backlight.hues[if (state.sameColor) 0 else state.selectedGroup].toHueDegrees(),
+            ),
+        ),
+    )
+    val presetFallbackName = stringResource(R.string.preset_fallback_name)
 
     Scaffold(
         modifier = modifier,
@@ -159,6 +190,57 @@ fun LightScreen(modifier: Modifier = Modifier, viewModel: LightViewModel = viewM
                     }
                 }
             }
+
+            // Preset card: save button + horizontal preset chips.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.light_presets),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        FilledIconButton(
+                            onClick = {
+                                viewModel.onSaveOpen(
+                                    presetDefaultName,
+                                    presetFallbackName
+                                )
+                            },
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                            ),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Add,
+                                contentDescription = stringResource(R.string.light_save_preset),
+                            )
+                        }
+                    }
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        state.presets.forEach { preset ->
+                            AssistChip(
+                                // Click/long-click are both handled by the
+                                // combinedClickable below (AssistChip has no
+                                // long-press support; a real onClick here would
+                                // register the tap twice). The empty lambda only
+                                // keeps the chip ripple and enabled semantics.
+                                onClick = {},
+                                label = { Text(preset.name) },
+                                enabled = connected,
+                                modifier = Modifier.combinedClickable(
+                                    onClick = { if (connected) viewModel.onPresetClick(preset) },
+                                    onLongClick = { viewModel.onPresetLongPress(preset) },
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         // Color editor sheet for the tapped group (or all four at once in
@@ -199,6 +281,135 @@ fun LightScreen(modifier: Modifier = Modifier, viewModel: LightViewModel = viewM
                 }
             }
         }
+
+        // Apply-confirmation dialog.
+        state.applyConfirmPreset?.let { preset ->
+            AlertDialog(
+                onDismissRequest = viewModel::onApplyDismiss,
+                title = { Text(stringResource(R.string.light_apply_preset)) },
+                text = { Text(stringResource(R.string.light_apply_confirm, preset.name)) },
+                confirmButton = {
+                    TextButton(onClick = viewModel::onApplyConfirm) {
+                        Text(stringResource(R.string.common_apply))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::onApplyDismiss) {
+                        Text(stringResource(R.string.common_cancel))
+                    }
+                },
+            )
+        }
+
+        // Save-preset sheet: config snapshot + name input.
+        if (state.showSaveSheet) {
+            ModalBottomSheet(onDismissRequest = viewModel::onSaveDismiss) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        text = stringResource(R.string.light_save_preset),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    // Config snapshot: four swatches + parameter summary.
+                    HueSwatchRow(
+                        hues = state.backlight.hues,
+                        saturation = state.backlight.saturations[0],
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                    Text(
+                        text = if (state.sameColor) {
+                            stringResource(
+                                R.string.light_save_summary,
+                                state.backlight.hues[0].toHueDegrees(),
+                                state.backlight.saturations[0],
+                                state.backlight.brightness,
+                                stringResource(state.backlight.mode.labelRes),
+                            )
+                        } else {
+                            stringResource(
+                                R.string.light_save_summary_multi,
+                                state.backlight.saturations[0],
+                                state.backlight.brightness,
+                                stringResource(state.backlight.mode.labelRes),
+                            )
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
+                    OutlinedTextField(
+                        value = state.saveName,
+                        onValueChange = viewModel::onSaveNameChange,
+                        label = { Text(stringResource(R.string.common_name)) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = viewModel::onSaveDismiss) {
+                            Text(stringResource(R.string.common_cancel))
+                        }
+                        TextButton(onClick = viewModel::onSaveConfirm) {
+                            Text(stringResource(R.string.common_save))
+                        }
+                    }
+                }
+            }
+        }
+
+        // Long-press manage menu: rename + delete.
+        state.managePreset?.let { preset ->
+            var renameText by remember(preset.id) { mutableStateOf(preset.name) }
+            ModalBottomSheet(onDismissRequest = viewModel::onMenuDismiss) {
+                Column(modifier = Modifier.padding(bottom = 24.dp)) {
+                    OutlinedTextField(
+                        value = renameText,
+                        onValueChange = { renameText = it },
+                        label = { Text(stringResource(R.string.common_rename)) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = { viewModel.onRenamePreset(renameText) }) {
+                            Text(stringResource(R.string.light_save_name))
+                        }
+                        Button(
+                            onClick = viewModel::onDeletePreset,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                            ),
+                            modifier = Modifier.padding(start = 8.dp),
+                        ) {
+                            Text(stringResource(R.string.light_delete_preset, preset.name))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Maps a hue angle (degrees) onto a color-name resource. */
+@StringRes
+private fun hueNameRes(deg: Int): Int {
+    val d = ((deg % 360) + 360) % 360
+    return when (d) {
+        in 0..14, in 346..359 -> R.string.hue_red
+        in 15..45 -> R.string.hue_orange
+        in 46..70 -> R.string.hue_yellow
+        in 71..160 -> R.string.hue_green
+        in 161..200 -> R.string.hue_cyan
+        in 201..255 -> R.string.hue_blue
+        in 256..290 -> R.string.hue_purple
+        else -> R.string.hue_pink
     }
 }
 
