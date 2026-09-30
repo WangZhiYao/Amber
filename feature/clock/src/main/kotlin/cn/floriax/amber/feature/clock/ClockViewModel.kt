@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import java.time.LocalTime
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Clock screen ViewModel (placeholder state, no device touched yet).
@@ -26,7 +27,7 @@ class ClockViewModel @Inject constructor() : BaseMVIViewModel<ClockUiState, Noth
     fun syncTime() {
         intent {
             reduce { state.copy(syncing = true) }
-            delay(800)
+            delay(800.milliseconds)
             reduce {
                 state.copy(
                     syncing = false,
@@ -45,6 +46,13 @@ class ClockViewModel @Inject constructor() : BaseMVIViewModel<ClockUiState, Noth
                 TimerKind.ALARM -> state.timers.copy(alarm = value)
             }
             reduce { state.copy(timers = timers) }
+        }
+    }
+
+    /** Sets the hour format (placeholder: local state only). */
+    fun setHourFormat(hour12: Boolean) {
+        intent {
+            reduce { state.copy(switches = state.switches.copy(hour12 = hour12)) }
         }
     }
 

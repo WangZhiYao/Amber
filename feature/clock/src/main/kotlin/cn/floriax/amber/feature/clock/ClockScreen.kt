@@ -8,12 +8,14 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -167,6 +169,60 @@ fun ClockScreen(modifier: Modifier = Modifier, viewModel: ClockViewModel = viewM
                     )
                 }
             }
+
+            // Display card: hour format, colon blink, mute, remote lock.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.clock_display_card),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = stringResource(R.string.clock_hour_format))
+                        Spacer(modifier = Modifier.weight(1f))
+                        FilterChip(
+                            selected = !state.switches.hour12,
+                            onClick = { viewModel.setHourFormat(false) },
+                            label = { Text(stringResource(R.string.clock_24_hour)) },
+                            enabled = connected,
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        FilterChip(
+                            selected = state.switches.hour12,
+                            onClick = { viewModel.setHourFormat(true) },
+                            label = { Text(stringResource(R.string.clock_12_hour)) },
+                            enabled = connected,
+                        )
+                    }
+                    SwitchRow(
+                        label = stringResource(R.string.clock_colon_blink),
+                        checked = state.switches.colonBlink,
+                        connected = connected,
+                        onChange = { viewModel.setSwitch(SwitchField.COLON_BLINK, it) },
+                    )
+                    SwitchRow(
+                        label = stringResource(R.string.clock_mute),
+                        checked = state.switches.mute,
+                        connected = connected,
+                        onChange = { viewModel.setSwitch(SwitchField.MUTE, it) },
+                    )
+                    SwitchRow(
+                        label = stringResource(R.string.clock_lock_remote),
+                        checked = state.switches.lockRemote,
+                        connected = connected,
+                        onChange = { viewModel.setSwitch(SwitchField.LOCK_REMOTE, it) },
+                    )
+                    Text(
+                        text = stringResource(R.string.clock_lock_remote_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+            }
         }
     }
 }
@@ -189,6 +245,7 @@ private fun TimerRow(
         TextButton(onClick = { showPicker = true }, enabled = connected) {
             Text(String.format(Locale.getDefault(), "%02d:%02d", time.hour, time.minute))
         }
+        Spacer(modifier = Modifier.width(12.dp))
         Switch(
             checked = enabled,
             onCheckedChange = onEnabledChange,
@@ -217,6 +274,21 @@ private fun TimerRow(
                 }
             },
         )
+    }
+}
+
+/** Switch row: label, value switch, both gated by connection. */
+@Composable
+private fun SwitchRow(
+    label: String,
+    checked: Boolean,
+    connected: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label)
+        Spacer(modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onChange, enabled = connected)
     }
 }
 

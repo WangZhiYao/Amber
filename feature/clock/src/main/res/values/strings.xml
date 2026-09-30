@@ -17,6 +17,16 @@
     <string name="common_confirm">确定</string>
     <string name="common_cancel">取消</string>
 
+    <!-- Display card -->
+    <string name="clock_display_card">显示</string>
+    <string name="clock_hour_format">小时制</string>
+    <string name="clock_24_hour">24小时制</string>
+    <string name="clock_12_hour">12小时制</string>
+    <string name="clock_colon_blink">冒号闪烁</string>
+    <string name="clock_mute">静音</string>
+    <string name="clock_lock_remote">锁定遥控器</string>
+    <string name="clock_lock_remote_hint">开启后红外遥控器不可用</string>
+
     <!-- Connection pill -->
     <string name="connection_connected">已连接</string>
     <string name="connection_connecting">连接中</string>
