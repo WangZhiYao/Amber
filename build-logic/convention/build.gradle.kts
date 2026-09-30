@@ -41,6 +41,10 @@ gradlePlugin {
             id = "amber.android.feature"
             implementationClass = "AndroidFeatureConventionPlugin"
         }
+        register("androidDomain") {
+            id = "amber.android.domain"
+            implementationClass = "AndroidDomainConventionPlugin"
+        }
         register("compose") {
             id = "amber.compose"
             implementationClass = "ComposeConventionPlugin"

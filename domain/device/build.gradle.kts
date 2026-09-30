@@ -1,5 +1,5 @@
 plugins {
-    id("amber.android.library")
+    id("amber.android.domain")
 }
 
 android {
@@ -7,8 +7,6 @@ android {
 }
 
 dependencies {
-    implementation(libs.kotlinx.coroutines.core)
-
     api(project(":domain:clock"))
     api(project(":domain:light"))
 }

@@ -12,6 +12,7 @@ leakcanary = "2.14"
 
 # DI
 hilt = "2.60.1"
+javax-inject = "1"
 
 # AndroidX
 androidx-core = "1.19.1"
@@ -49,6 +50,7 @@ androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-
 # Dependency Injection
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-android-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
+javax-inject = { group = "javax.inject", name = "javax.inject", version.ref = "javax-inject" }
 
 # Compose
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity-compose" }

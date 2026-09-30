@@ -1,5 +1,5 @@
 plugins {
-    id("amber.android.library")
+    id("amber.android.domain")
 }
 
 android {
