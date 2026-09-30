@@ -40,8 +40,14 @@
     <string name="common_name">名称</string>
 
     <!-- Connection pill -->
+    <string name="common_not_connected">未连接</string>
+    <string name="common_write_failed_toast">发送失败：%1$s</string>
+    <string name="permission_required_toast">需要蓝牙权限才能连接设备，请在系统设置中开启</string>
+    <string name="connect_no_device_toast">未找到辉光钟设备</string>
+    <string name="bluetooth_required_toast">需要开启蓝牙才能连接设备</string>
     <string name="connection_connected">已连接</string>
     <string name="connection_connecting">连接中</string>
     <string name="connection_reconnecting">重连中</string>
     <string name="connection_disconnected_retry">未连接 · 重试</string>
+    <string name="connection_scanning">搜索中…</string>
 </resources>

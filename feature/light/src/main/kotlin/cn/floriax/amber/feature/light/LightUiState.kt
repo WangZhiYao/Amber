@@ -5,7 +5,7 @@ import cn.floriax.amber.domain.light.Backlight
 import cn.floriax.amber.domain.light.Preset
 
 /**
- * Light screen state (placeholder values).
+ * Light screen state.
  *
  * @author WangZhiYao
  * @since 2026/9/29
@@ -15,6 +15,12 @@ data class LightUiState(
     val connection: ConnectionState = ConnectionState.DISCONNECTED,
     /** Device name shown in the pill when connected. */
     val deviceName: String = "",
+    /**
+     * Whether a discovery scan is running. Scanning is a local activity, not a
+     * device connection state, so it lives here rather than in
+     * [ConnectionState]; the pill shows it as "searching".
+     */
+    val scanning: Boolean = false,
     /** LED backlight config (per-group H/S, brightness, mode). */
     val backlight: Backlight = Backlight.DEFAULT,
     /** Whether the colon of the digit preview blinks. */

@@ -1,6 +1,11 @@
 package cn.floriax.amber.feature.light
 
+import android.app.Activity
+import android.bluetooth.BluetoothAdapter
+import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -55,7 +60,10 @@ import cn.floriax.amber.feature.light.components.SliderRow
 import cn.floriax.amber.feature.light.components.toHueDegrees
 import cn.floriax.amber.shared.designsystem.component.AmberTopBar
 import cn.floriax.amber.shared.designsystem.component.ConnectionPill
+import cn.floriax.amber.shared.ui.ext.collectSideEffect
 import cn.floriax.amber.shared.ui.ext.collectState
+import cn.floriax.amber.shared.ui.permission.hasBlePermissions
+import cn.floriax.amber.shared.ui.permission.requiredBlePermissions
 
 /**
  * Light screen placeholder: digit tube preview card.
@@ -69,10 +77,76 @@ import cn.floriax.amber.shared.ui.ext.collectState
     ExperimentalFoundationApi::class
 )
 @Composable
-fun LightScreen(modifier: Modifier = Modifier, viewModel: LightViewModel = viewModel()) {
+fun LightScreen(
+    onOpenDevices: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: LightViewModel = viewModel(),
+) {
     val state by viewModel.collectState()
     val connected = state.connection == ConnectionState.CONNECTED
     val context = LocalContext.current
+
+    // Permissions are a view-layer concern: ask here, then hand the intent to
+    // the ViewModel (which owns scanning and connecting).
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { granted ->
+        if (granted.values.all { it }) {
+            viewModel.onRetryConnect()
+        } else {
+            viewModel.onPermissionRequired()
+        }
+    }
+
+    // Bluetooth-off guidance: the ViewModel reports the state, the screen
+    // shows the system enable dialog and retries once the user accepts.
+    val enableBluetoothLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.onRetryConnect()
+        } else {
+            // Declining the system dialog is a presentation-level outcome of a
+            // dialog this screen owns, so the feedback stays here.
+            Toast.makeText(
+                context,
+                context.getString(R.string.bluetooth_required_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+
+    viewModel.collectSideEffect { effect ->
+        when (effect) {
+            LightSideEffect.NotConnected -> Toast.makeText(
+                context,
+                context.getString(R.string.common_not_connected),
+                Toast.LENGTH_SHORT,
+            ).show()
+
+            is LightSideEffect.WriteFailed -> Toast.makeText(
+                context,
+                context.getString(R.string.common_write_failed_toast, effect.message),
+                Toast.LENGTH_SHORT,
+            ).show()
+
+            LightSideEffect.NoDeviceFound -> Toast.makeText(
+                context,
+                context.getString(R.string.connect_no_device_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
+
+            LightSideEffect.PermissionRequired -> Toast.makeText(
+                context,
+                context.getString(R.string.permission_required_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
+
+            LightSideEffect.BluetoothOff -> enableBluetoothLauncher.launch(
+                Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE),
+            )
+        }
+    }
 
     // Hue sheet: non-null tapped group = open. Any tube opens the sheet when
     // the mode supports custom colors; otherwise a toast explains why not.
@@ -97,9 +171,23 @@ fun LightScreen(modifier: Modifier = Modifier, viewModel: LightViewModel = viewM
                 title = stringResource(R.string.tab_light),
                 actions = {
                     ConnectionPill(
-                        label = connectionLabel(state.connection, state.deviceName),
+                        label = if (state.scanning) {
+                            stringResource(R.string.connection_scanning)
+                        } else {
+                            connectionLabel(state.connection, state.deviceName)
+                        },
                         dotColor = connectionDotColor(state.connection),
-                        onClick = { /* TODO: retry / open device management */ },
+                        // Disconnected (including failed reconnection): the pill is
+                        // the manual retry entry; otherwise it opens device management.
+                        onClick = {
+                            if (state.connection != ConnectionState.DISCONNECTED) {
+                                onOpenDevices()
+                            } else if (context.hasBlePermissions()) {
+                                viewModel.onRetryConnect()
+                            } else {
+                                permissionLauncher.launch(requiredBlePermissions())
+                            }
+                        },
                         modifier = Modifier.padding(end = 12.dp),
                     )
                 },

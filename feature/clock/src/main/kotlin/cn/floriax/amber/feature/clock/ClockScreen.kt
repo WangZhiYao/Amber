@@ -1,5 +1,11 @@
 package cn.floriax.amber.feature.clock
 
+import android.app.Activity
+import android.bluetooth.BluetoothAdapter
+import android.content.Intent
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,13 +37,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cn.floriax.amber.domain.device.model.ConnectionState
 import cn.floriax.amber.shared.designsystem.component.AmberTopBar
 import cn.floriax.amber.shared.designsystem.component.ConnectionPill
+import cn.floriax.amber.shared.ui.ext.collectSideEffect
 import cn.floriax.amber.shared.ui.ext.collectState
+import cn.floriax.amber.shared.ui.permission.hasBlePermissions
+import cn.floriax.amber.shared.ui.permission.requiredBlePermissions
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
@@ -52,9 +62,82 @@ import java.util.Locale
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ClockScreen(modifier: Modifier = Modifier, viewModel: ClockViewModel = viewModel()) {
+fun ClockScreen(
+    onOpenDevices: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: ClockViewModel = viewModel(),
+) {
     val state by viewModel.collectState()
     val connected = state.connection == ConnectionState.CONNECTED
+    val context = LocalContext.current
+
+    // Permissions are a view-layer concern: ask here, then hand the intent to
+    // the ViewModel (which owns scanning and connecting).
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { granted ->
+        if (granted.values.all { it }) {
+            viewModel.onRetryConnect()
+        } else {
+            viewModel.onPermissionRequired()
+        }
+    }
+
+    // Bluetooth-off guidance: the ViewModel reports the state, the screen
+    // shows the system enable dialog and retries once the user accepts.
+    val enableBluetoothLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.onRetryConnect()
+        } else {
+            // Declining the system dialog is a presentation-level outcome of a
+            // dialog this screen owns, so the feedback stays here.
+            Toast.makeText(
+                context,
+                context.getString(R.string.bluetooth_required_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+
+    viewModel.collectSideEffect { effect ->
+        when (effect) {
+            ClockSideEffect.NotConnected -> Toast.makeText(
+                context,
+                context.getString(R.string.common_not_connected),
+                Toast.LENGTH_SHORT,
+            ).show()
+
+            ClockSideEffect.Synced -> Toast.makeText(
+                context,
+                context.getString(R.string.clock_synced_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
+
+            is ClockSideEffect.WriteFailed -> Toast.makeText(
+                context,
+                context.getString(R.string.common_write_failed_toast, effect.message),
+                Toast.LENGTH_SHORT,
+            ).show()
+
+            ClockSideEffect.NoDeviceFound -> Toast.makeText(
+                context,
+                context.getString(R.string.connect_no_device_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
+
+            ClockSideEffect.PermissionRequired -> Toast.makeText(
+                context,
+                context.getString(R.string.permission_required_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
+
+            ClockSideEffect.BluetoothOff -> enableBluetoothLauncher.launch(
+                Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE),
+            )
+        }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -63,9 +146,23 @@ fun ClockScreen(modifier: Modifier = Modifier, viewModel: ClockViewModel = viewM
                 title = stringResource(R.string.tab_clock),
                 actions = {
                     ConnectionPill(
-                        label = connectionLabel(state.connection, state.deviceName),
+                        label = if (state.scanning) {
+                            stringResource(R.string.connection_scanning)
+                        } else {
+                            connectionLabel(state.connection, state.deviceName)
+                        },
                         dotColor = connectionDotColor(state.connection),
-                        onClick = { /* TODO: retry / open device management */ },
+                        // Disconnected (including failed reconnection): the pill is
+                        // the manual retry entry; otherwise it opens device management.
+                        onClick = {
+                            if (state.connection != ConnectionState.DISCONNECTED) {
+                                onOpenDevices()
+                            } else if (context.hasBlePermissions()) {
+                                viewModel.onRetryConnect()
+                            } else {
+                                permissionLauncher.launch(requiredBlePermissions())
+                            }
+                        },
                         modifier = Modifier.padding(end = 12.dp),
                     )
                 },

@@ -20,6 +20,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import cn.floriax.amber.feature.clock.clockSection
 import cn.floriax.amber.feature.light.lightSection
+import cn.floriax.amber.feature.settings.SettingsRoute
 import cn.floriax.amber.feature.settings.settingsSection
 import cn.floriax.amber.navigation.Routes
 import cn.floriax.amber.navigation.StateNavigator
@@ -34,6 +35,10 @@ import dagger.hilt.android.AndroidEntryPoint
  * Each bottom bar tab owns a real back stack; tab state survives tab
  * switches, config changes and process death. The debug log page (internal
  * to the settings feature) hides the bottom bar while open.
+ *
+ * The activity only assembles navigation: screens own their state machines,
+ * and connection actions (permissions, scanning, connecting) live in the
+ * feature ViewModels, backed by the domain use cases.
  *
  * @author WangZhiYao
  * @since 2026/9/29
@@ -53,8 +58,8 @@ class MainActivity : ComponentActivity() {
                 val navigator = remember(navigationState) { StateNavigator(navigationState) }
 
                 val entryProvider = entryProvider {
-                    lightSection()
-                    clockSection()
+                    lightSection(onOpenDevices = { navigator.navigate(SettingsRoute) })
+                    clockSection(onOpenDevices = { navigator.navigate(SettingsRoute) })
                     settingsSection(navigator)
                 }
 
