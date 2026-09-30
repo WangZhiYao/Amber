@@ -1,13 +1,12 @@
 <resources>
     <string name="tab_light">灯光</string>
     <string name="light_digits_preview">数字管预览</string>
-    <string name="light_sync">同步</string>
+    <string name="light_sync">统一设置颜色</string>
     <string name="light_contrast">对比度</string>
     <string name="light_brightness">亮度</string>
     <string name="light_percent">%1$d%%</string>
     <string name="light_mode">模式</string>
     <string name="light_hue">色相 %1$d°</string>
-    <string name="light_group_hue">组%1$d · 色相 %2$d°</string>
     <string name="light_mode_no_custom">仅 静态 / 呼吸 支持自定义颜色</string>
     <string name="backlight_mode_static">静态</string>
     <string name="backlight_mode_breath">呼吸</string>

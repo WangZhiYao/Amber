@@ -2,8 +2,8 @@ package cn.floriax.amber.feature.light.components
 
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -63,8 +63,8 @@ private val NixieGlow = Color(0xFFFFA652)
 private const val BacklightVeilAlpha = 0.16f
 
 /**
- * Digit tube preview: HH:MM, four tubes, blinking colon. Tubes are
- * selectable when [selectable]; the selected tube gets a primary border.
+ * Digit tube preview: HH:MM, four tubes, blinking colon. Tubes are always
+ * tappable ([onGroupTap]).
  *
  * @author WangZhiYao
  * @since 2026/9/29
@@ -75,8 +75,6 @@ internal fun DigitPreview(
     saturations: List<Int>,
     brightness: Int,
     colonBlink: Boolean,
-    selectable: Boolean,
-    selectedGroup: Int,
     onGroupTap: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -87,38 +85,42 @@ internal fun DigitPreview(
             delay(1_000.milliseconds)
         }
     }
-    val blink by rememberInfiniteTransition(label = "colon").animateFloat(
-        initialValue = 1f,
-        targetValue = if (colonBlink) 0.15f else 1f,
-        animationSpec = infiniteRepeatable(tween(1000)),
-        label = "blink",
-    )
+    // Hard blink: lit ~1s, snap off, dark ~1s, snap back on. The transition
+    // exists only while blinking — no animation runs when the colon is static.
+    val blink = if (colonBlink) {
+        rememberInfiniteTransition(label = "colon").animateFloat(
+            initialValue = 1f,
+            targetValue = 0f,
+            animationSpec = infiniteRepeatable(
+                animation = keyframes {
+                    durationMillis = 2000
+                    1f at 0
+                    1f at 999
+                    0.15f at 1000
+                    0.15f at 1999
+                    1f at 2000
+                },
+            ),
+            label = "blink",
+        ).value
+    } else {
+        1f
+    }
     val digits = listOf(
         time.hour / 10, time.hour % 10, time.minute / 10, time.minute % 10,
     )
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         digits.forEachIndexed { i, d ->
             val lamp = lampColor(hues[i], saturations[i], brightness)
-            val selected = selectable && i == selectedGroup
             val tubeShape = RoundedCornerShape(48)
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .aspectRatio(TubeAspectRatio)
-                    .then(
-                        if (selected) {
-                            Modifier.border(2.dp, MaterialTheme.colorScheme.primary, tubeShape)
-                        } else {
-                            Modifier.border(
-                                1.dp,
-                                MaterialTheme.colorScheme.outlineVariant,
-                                tubeShape
-                            )
-                        },
-                    )
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, tubeShape)
                     .clip(tubeShape)
                     .background(lamp.copy(alpha = BacklightVeilAlpha))
-                    .clickable(enabled = selectable) { onGroupTap(i) },
+                    .clickable { onGroupTap(i) },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(

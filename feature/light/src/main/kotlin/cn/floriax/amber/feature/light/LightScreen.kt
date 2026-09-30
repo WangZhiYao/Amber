@@ -1,5 +1,6 @@
 package cn.floriax.amber.feature.light
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -16,14 +17,19 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -47,6 +53,11 @@ import cn.floriax.amber.shared.ui.ext.collectState
 fun LightScreen(modifier: Modifier = Modifier, viewModel: LightViewModel = viewModel()) {
     val state by viewModel.collectState()
     val connected = state.connection == ConnectionState.CONNECTED
+    val context = LocalContext.current
+
+    // Hue sheet: non-null tapped group = open. Any tube opens the sheet when
+    // the mode supports custom colors; otherwise a toast explains why not.
+    var hueSheetGroup by remember { mutableStateOf<Int?>(null) }
 
     Scaffold(
         modifier = modifier,
@@ -99,68 +110,29 @@ fun LightScreen(modifier: Modifier = Modifier, viewModel: LightViewModel = viewM
                         saturations = state.backlight.saturations,
                         brightness = state.backlight.brightness,
                         colonBlink = state.colonBlink,
-                        selectable = !state.sameColor,
-                        selectedGroup = state.selectedGroup,
-                        onGroupTap = viewModel::selectGroup,
+                        onGroupTap = { group ->
+                            if (state.backlight.mode.supportsCustomColor) {
+                                if (!state.sameColor) viewModel.selectGroup(group)
+                                hueSheetGroup = group
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.light_mode_no_custom),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
                         modifier = Modifier.padding(top = 12.dp),
                     )
                 }
             }
 
-            // Hue wheel card.
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    val hueIndex = if (state.sameColor) 0 else state.selectedGroup
-                    HueWheel(
-                        hueByte = state.backlight.hues[hueIndex],
-                        enabled = connected && state.backlight.mode.supportsCustomColor,
-                        onHueChangeFinished = viewModel::setHueDegrees,
-                    )
-                    if (state.backlight.mode.supportsCustomColor) {
-                        Text(
-                            text = if (state.sameColor) {
-                                stringResource(
-                                    R.string.light_hue,
-                                    state.backlight.hues[0].toHueDegrees(),
-                                )
-                            } else {
-                                stringResource(
-                                    R.string.light_group_hue,
-                                    state.selectedGroup + 1,
-                                    state.backlight.hues[hueIndex].toHueDegrees(),
-                                )
-                            },
-                            modifier = Modifier.padding(top = 4.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
-                        Text(
-                            text = stringResource(R.string.light_mode_no_custom),
-                            modifier = Modifier.padding(top = 4.dp),
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-                    }
-                }
-            }
-
-            // Parameter card: contrast and brightness sliders, mode chips.
+            // Parameter card: brightness slider and mode chips (global).
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    SliderRow(
-                        label = stringResource(R.string.light_contrast),
-                        value = state.backlight.saturations[if (state.sameColor) 0 else state.selectedGroup],
-                        enabled = connected && state.backlight.mode.supportsCustomColor,
-                        onValueChange = viewModel::setSaturation,
-                        onFinish = viewModel::setSaturation,
-                    )
                     SliderRow(
                         label = stringResource(R.string.light_brightness),
                         value = state.backlight.brightness,
@@ -185,6 +157,45 @@ fun LightScreen(modifier: Modifier = Modifier, viewModel: LightViewModel = viewM
                             )
                         }
                     }
+                }
+            }
+        }
+
+        // Color editor sheet for the tapped group (or all four at once in
+        // unified mode): hue wheel + contrast slider. Hue commits on wheel
+        // release; dismiss by dragging down.
+        hueSheetGroup?.let { group ->
+            ModalBottomSheet(onDismissRequest = { hueSheetGroup = null }) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    val hueIndex = if (state.sameColor) 0 else group
+                    HueWheel(
+                        hueByte = state.backlight.hues[hueIndex],
+                        enabled = true,
+                        onHueChangeFinished = viewModel::setHueDegrees,
+                    )
+                    Text(
+                        text = stringResource(
+                            R.string.light_hue,
+                            state.backlight.hues[hueIndex].toHueDegrees(),
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    // Contrast targets the same group(s) as the wheel above.
+                    SliderRow(
+                        label = stringResource(R.string.light_contrast),
+                        value = state.backlight.saturations[hueIndex],
+                        enabled = true,
+                        onValueChange = viewModel::setSaturation,
+                        onFinish = viewModel::setSaturation,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
         }
