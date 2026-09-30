@@ -141,6 +141,21 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // About card: version info.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = stringResource(R.string.settings_about_card),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_version),
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+            }
         }
     }
 }

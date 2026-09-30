@@ -15,6 +15,10 @@
     <string name="settings_dev_card">开发</string>
     <string name="settings_debug_panel">调试面板</string>
 
+    <!-- About card -->
+    <string name="settings_about_card">关于</string>
+    <string name="settings_version">v1.0</string>
+
     <!-- Debug log page -->
     <string name="debug_title">调试日志</string>
     <string name="cd_back">返回</string>
