@@ -9,7 +9,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -20,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -47,6 +51,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -310,21 +316,14 @@ fun LightScreen(
                     }
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         state.presets.forEach { preset ->
-                            AssistChip(
-                                // Click/long-click are both handled by the
-                                // combinedClickable below (AssistChip has no
-                                // long-press support; a real onClick here would
-                                // register the tap twice). The empty lambda only
-                                // keeps the chip ripple and enabled semantics.
-                                onClick = {},
-                                label = { Text(preset.name) },
+                            PresetChip(
+                                name = preset.name,
                                 enabled = connected,
-                                modifier = Modifier.combinedClickable(
-                                    onClick = { if (connected) viewModel.onPresetClick(preset) },
-                                    onLongClick = { viewModel.onPresetLongPress(preset) },
-                                ),
+                                onClick = { if (connected) viewModel.onPresetClick(preset) },
+                                onLongClick = { viewModel.onPresetLongPress(preset) },
                             )
                         }
                     }
@@ -484,6 +483,44 @@ fun LightScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * Preset chip: apply on tap (with the confirmation dialog), manage on
+ * long-press. Drawn by hand instead of AssistChip — a chip's internal
+ * clickable consumes the gesture, so an outer combinedClickable never
+ * fires (tap AND long-press both went dead with AssistChip).
+ *
+ * Long-press stays active while disconnected: rename/delete are local
+ * database operations; only applying needs the device.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun PresetChip(
+    name: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(6.dp)
+    Box(
+        modifier = Modifier
+            .clip(shape)
+            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline), shape)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .alpha(if (enabled) 1f else 0.5f),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            name,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
