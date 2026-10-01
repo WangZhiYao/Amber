@@ -26,6 +26,7 @@ rootProject.name = "Amber"
 include(":app")
 
 include(":core:common")
+include(":core:database")
 include(":core:ble")
 
 include(":data:device")

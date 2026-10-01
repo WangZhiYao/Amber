@@ -10,6 +10,7 @@ android {
 dependencies {
     implementation(project(":core:ble"))
     implementation(project(":core:common"))
+    implementation(project(":core:database"))
 
     api(project(":domain:device"))
     api(project(":domain:clock"))
