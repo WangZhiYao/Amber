@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -52,7 +53,6 @@ import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /**
  * Clock screen placeholder: time sync card.
@@ -70,6 +70,7 @@ fun ClockScreen(
     val state by viewModel.collectState()
     val connected = state.connection == ConnectionState.CONNECTED
     val context = LocalContext.current
+    val resources = LocalResources.current
 
     // Permissions are a view-layer concern: ask here, then hand the intent to
     // the ViewModel (which owns scanning and connecting).
@@ -95,7 +96,7 @@ fun ClockScreen(
             // dialog this screen owns, so the feedback stays here.
             Toast.makeText(
                 context,
-                context.getString(R.string.bluetooth_required_toast),
+                resources.getString(R.string.bluetooth_required_toast),
                 Toast.LENGTH_SHORT,
             ).show()
         }
@@ -105,31 +106,31 @@ fun ClockScreen(
         when (effect) {
             ClockSideEffect.NotConnected -> Toast.makeText(
                 context,
-                context.getString(R.string.common_not_connected),
+                resources.getString(R.string.common_not_connected),
                 Toast.LENGTH_SHORT,
             ).show()
 
             ClockSideEffect.Synced -> Toast.makeText(
                 context,
-                context.getString(R.string.clock_synced_toast),
+                resources.getString(R.string.clock_synced_toast),
                 Toast.LENGTH_SHORT,
             ).show()
 
             is ClockSideEffect.WriteFailed -> Toast.makeText(
                 context,
-                context.getString(R.string.common_write_failed_toast, effect.message),
+                resources.getString(R.string.common_write_failed_toast, effect.message),
                 Toast.LENGTH_SHORT,
             ).show()
 
             ClockSideEffect.NoDeviceFound -> Toast.makeText(
                 context,
-                context.getString(R.string.connect_no_device_toast),
+                resources.getString(R.string.connect_no_device_toast),
                 Toast.LENGTH_SHORT,
             ).show()
 
             ClockSideEffect.PermissionRequired -> Toast.makeText(
                 context,
-                context.getString(R.string.permission_required_toast),
+                resources.getString(R.string.permission_required_toast),
                 Toast.LENGTH_SHORT,
             ).show()
 
@@ -340,7 +341,7 @@ private fun TimerRow(
         Text(label)
         Spacer(modifier = Modifier.weight(1f))
         TextButton(onClick = { showPicker = true }, enabled = connected) {
-            Text(String.format(Locale.getDefault(), "%02d:%02d", time.hour, time.minute))
+            Text(stringResource(R.string.clock_time_hh_mm, time.hour, time.minute))
         }
         Spacer(modifier = Modifier.width(12.dp))
         Switch(

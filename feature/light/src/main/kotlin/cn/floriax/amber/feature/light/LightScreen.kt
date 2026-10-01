@@ -7,10 +7,10 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,7 +28,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -55,6 +54,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -91,6 +91,7 @@ fun LightScreen(
     val state by viewModel.collectState()
     val connected = state.connection == ConnectionState.CONNECTED
     val context = LocalContext.current
+    val resources = LocalResources.current
 
     // Permissions are a view-layer concern: ask here, then hand the intent to
     // the ViewModel (which owns scanning and connecting).
@@ -116,7 +117,7 @@ fun LightScreen(
             // dialog this screen owns, so the feedback stays here.
             Toast.makeText(
                 context,
-                context.getString(R.string.bluetooth_required_toast),
+                resources.getString(R.string.bluetooth_required_toast),
                 Toast.LENGTH_SHORT,
             ).show()
         }
@@ -126,25 +127,25 @@ fun LightScreen(
         when (effect) {
             LightSideEffect.NotConnected -> Toast.makeText(
                 context,
-                context.getString(R.string.common_not_connected),
+                resources.getString(R.string.common_not_connected),
                 Toast.LENGTH_SHORT,
             ).show()
 
             is LightSideEffect.WriteFailed -> Toast.makeText(
                 context,
-                context.getString(R.string.common_write_failed_toast, effect.message),
+                resources.getString(R.string.common_write_failed_toast, effect.message),
                 Toast.LENGTH_SHORT,
             ).show()
 
             LightSideEffect.NoDeviceFound -> Toast.makeText(
                 context,
-                context.getString(R.string.connect_no_device_toast),
+                resources.getString(R.string.connect_no_device_toast),
                 Toast.LENGTH_SHORT,
             ).show()
 
             LightSideEffect.PermissionRequired -> Toast.makeText(
                 context,
-                context.getString(R.string.permission_required_toast),
+                resources.getString(R.string.permission_required_toast),
                 Toast.LENGTH_SHORT,
             ).show()
 
@@ -242,7 +243,7 @@ fun LightScreen(
                             } else {
                                 Toast.makeText(
                                     context,
-                                    context.getString(R.string.light_mode_no_custom),
+                                    resources.getString(R.string.light_mode_no_custom),
                                     Toast.LENGTH_SHORT,
                                 ).show()
                             }

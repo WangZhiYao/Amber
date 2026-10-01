@@ -29,6 +29,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,7 +45,6 @@ import cn.floriax.amber.shared.ui.ext.collectSideEffect
 import cn.floriax.amber.shared.ui.ext.collectState
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 
 /**
  * Debug panel: frame log (auto-scrolling) and manual frame sending.
@@ -60,6 +61,7 @@ fun DebugScreen(
 ) {
     val state by viewModel.collectState()
     val context = LocalContext.current
+    val resources = LocalResources.current
     val listState = rememberLazyListState()
 
     viewModel.collectSideEffect { effect ->
@@ -68,14 +70,26 @@ fun DebugScreen(
                 val clipboard =
                     context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(ClipData.newPlainText("amber_logs", effect.text))
-                Toast.makeText(context, context.getString(R.string.debug_copied), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    resources.getString(R.string.debug_copied),
+                    Toast.LENGTH_SHORT
+                ).show()
             }
 
             DebugSideEffect.Sent ->
-                Toast.makeText(context, context.getString(R.string.debug_sent), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    resources.getString(R.string.debug_sent),
+                    Toast.LENGTH_SHORT
+                ).show()
 
             DebugSideEffect.SendFailed ->
-                Toast.makeText(context, context.getString(R.string.debug_send_failed), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    resources.getString(R.string.debug_send_failed),
+                    Toast.LENGTH_SHORT
+                ).show()
         }
     }
 
@@ -111,10 +125,14 @@ fun DebugScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Card(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            Card(modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)) {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize().padding(8.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp),
                 ) {
                     items(state.logs) { log ->
                         LogLine(log)
@@ -178,7 +196,10 @@ fun DebugScreen(
  */
 @Composable
 private fun LogLine(log: FrameLog) {
-    val time = SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault()).format(Date(log.timestamp))
+    val time = SimpleDateFormat(
+        "HH:mm:ss.SSS",
+        LocalLocale.current.platformLocale
+    ).format(Date(log.timestamp))
     val color = when (log.direction) {
         FrameLog.Direction.TX -> MaterialTheme.colorScheme.primary
         FrameLog.Direction.RX -> MaterialTheme.colorScheme.tertiary
