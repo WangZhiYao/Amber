@@ -19,6 +19,10 @@ import kotlinx.coroutines.flow.receiveAsFlow
  */
 class FakeBleClient : BleClient {
     override val isBluetoothEnabled = true
+
+    /** Scriptable adapter state: tests toggle it to simulate radio off/on. */
+    override val bluetoothState = MutableStateFlow(true)
+
     var connectBehavior: suspend (String) -> BleConnection = { FakeBleConnection() }
     val connections = mutableListOf<FakeBleConnection>()
 

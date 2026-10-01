@@ -504,4 +504,76 @@ class ClockRepositoryConnectTest {
             repo.deviceState.value.connection
         )
     }
+
+    // ---- Bluetooth adapter state ----
+
+    /**
+     * Adapter off is a system-level break: reconnecting cannot succeed, so
+     * the state falls back to DISCONNECTED (not RECONNECTING) and all
+     * retry loops stop. The connection intent survives for the radio
+     * coming back.
+     */
+    @Test
+    fun `蓝牙关闭时停止重连并落回未连接`() = runTest {
+        val fake = FakeBleClient()
+        val conn = FakeBleConnection()
+        fake.connectBehavior = { conn }
+        val repo = makeRepo(fake)
+        connectAndHandshake(fake, conn, repo)
+
+        fake.bluetoothState.value = false
+        runCurrent()
+
+        assertEquals(ConnectionState.DISCONNECTED, repo.deviceState.value.connection)
+        advanceTimeBy(60_000)
+        runCurrent()
+        assertEquals(
+            "no reconnect attempts while the radio is off",
+            ConnectionState.DISCONNECTED,
+            repo.deviceState.value.connection
+        )
+        assertEquals(1, fake.connections.size)
+    }
+
+    @Test
+    fun `蓝牙恢复后自动续连`() = runTest {
+        val fake = FakeBleClient()
+        val conn = FakeBleConnection()
+        fake.connectBehavior = { conn }
+        val repo = makeRepo(fake)
+        connectAndHandshake(fake, conn, repo)
+
+        fake.bluetoothState.value = false
+        runCurrent()
+
+        val conn2 = FakeBleConnection()
+        fake.connectBehavior = { conn2 }
+        fake.bluetoothState.value = true
+        runCurrent()
+        repo.onFrame(goldenLed)
+        repo.onFrame(goldenSwitch)
+        repo.onFrame(goldenTime)
+        runCurrent()
+
+        assertEquals(ConnectionState.CONNECTED, repo.deviceState.value.connection)
+    }
+
+    @Test
+    fun `用户主动断开后蓝牙恢复不自动续连`() = runTest {
+        val fake = FakeBleClient()
+        val conn = FakeBleConnection()
+        fake.connectBehavior = { conn }
+        val repo = makeRepo(fake)
+        connectAndHandshake(fake, conn, repo)
+        repo.disconnect()
+
+        fake.bluetoothState.value = false
+        runCurrent()
+        fake.bluetoothState.value = true
+        advanceTimeBy(60_000)
+        runCurrent()
+
+        assertEquals(ConnectionState.DISCONNECTED, repo.deviceState.value.connection)
+        assertEquals(1, fake.connections.size)
+    }
 }

@@ -1,12 +1,20 @@
 package cn.floriax.amber.core.ble
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.util.Log
+import androidx.annotation.RequiresPermission
 import cn.floriax.amber.core.common.di.qualifier.ApplicationIOScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onCompletion
 import kotlin.coroutines.cancellation.CancellationException
@@ -75,12 +83,28 @@ class NordicBleManager @Inject constructor(
                 ?.adapter?.isEnabled == true
         }.getOrDefault(false)
 
+    /** Emits the current adapter state, then every on/off transition. */
+    override val bluetoothState: Flow<Boolean> = callbackFlow {
+        trySend(isBluetoothEnabled)
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                when (intent?.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1)) {
+                    BluetoothAdapter.STATE_ON -> trySend(true)
+                    BluetoothAdapter.STATE_OFF -> trySend(false)
+                }
+            }
+        }
+        context.registerReceiver(receiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED))
+        awaitClose { context.unregisterReceiver(receiver) }
+    }
+
     /**
      * Scans and emits only matching devices. The device name is read from
      * [BluetoothDevice.getName] with the advertised name (scan record) as
      * fallback — some phones leave getName() null when the name lives only
      * in the scan response, which used to drop every result silently.
      */
+    @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT])
     override fun scan(): Flow<BleScanResult> = flow {
         Log.i(TAG, "Scan started (names=$SCAN_NAMES)")
         // Per-collection state: log each distinct non-matching name once so

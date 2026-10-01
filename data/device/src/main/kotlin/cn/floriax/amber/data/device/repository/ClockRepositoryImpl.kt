@@ -89,6 +89,44 @@ class ClockRepositoryImpl(
     private var userInitiatedClose = false
     private var currentMac: String? = null
 
+    init {
+        // Adapter off/on is a system-level event outside the GATT link:
+        // off stops every retry (reconnecting without a radio would spin
+        // forever and show a misleading "reconnecting" state), on resumes
+        // the connection when the user had not actively disconnected.
+        scope.launch {
+            ble.bluetoothState.collect { enabled ->
+                if (enabled) onBluetoothOn() else onBluetoothOff()
+            }
+        }
+    }
+
+    /** Adapter off: drop to DISCONNECTED, stop all retries, keep the intent ([wanted]). */
+    private fun onBluetoothOff() {
+        generation++
+        reconnectJob?.cancel()
+        reconnectJob = null
+        abandon(session)
+        projector.update { it.copy(connection = ConnectionState.DISCONNECTED) }
+    }
+
+    /**
+     * Adapter back on: reconnect the remembered device when the user had
+     * not actively disconnected (the intent survived [onBluetoothOff]).
+     */
+    private fun onBluetoothOn() {
+        val mac = currentMac ?: return
+        if (!wanted || userInitiatedClose) return
+        if (projector.deviceState.value.connection != ConnectionState.DISCONNECTED) return
+        val gen = ++generation
+        projector.update {
+            it.copy(connection = ConnectionState.CONNECTING, deviceMac = mac)
+        }
+        scope.launch {
+            if (!tryConnect(mac, gen) && gen == generation) scheduleReconnect(mac, gen)
+        }
+    }
+
     private fun isCurrent(s: ConnectionSession) = session === s
 
     /** Closes the session; yields it too if it is still current. All operations idempotent. */
@@ -212,6 +250,12 @@ class ClockRepositoryImpl(
      */
     private fun scheduleReconnect(mac: String, gen: Long) {
         if (!wanted || userInitiatedClose) return
+        // Radio off: retrying cannot succeed — fall back to DISCONNECTED
+        // (the adapter-state listener resumes the connection once on).
+        if (!ble.isBluetoothEnabled) {
+            projector.update { it.copy(connection = ConnectionState.DISCONNECTED) }
+            return
+        }
         // The link is gone — leave CONNECTED/CONNECTING first; this must not be
         // skipped due to "a sequence is already running".
         projector.update { it.copy(connection = ConnectionState.RECONNECTING) }

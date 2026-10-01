@@ -12,6 +12,13 @@ import kotlinx.coroutines.flow.Flow
 interface BleClient {
     val isBluetoothEnabled: Boolean
 
+    /**
+     * Adapter on/off stream (emits the current state on collection). The
+     * connection state machine uses it to stop reconnecting while the
+     * adapter is off and resume automatically once it is back.
+     */
+    val bluetoothState: Flow<Boolean>
+
     /** Cold flow: scans while being collected; the client filters by name. */
     fun scan(): Flow<BleScanResult>
 
