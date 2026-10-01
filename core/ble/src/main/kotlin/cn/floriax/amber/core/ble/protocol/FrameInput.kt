@@ -1,7 +1,5 @@
 package cn.floriax.amber.core.ble.protocol
 
-import java.util.HexFormat
-
 /**
  * Parses manual frame input from the debug panel.
  *
@@ -18,7 +16,9 @@ fun parseFrameInput(input: String): ByteArray? {
     val cleaned = input.trim().replace("-", "").replace(" ", "")
     if (cleaned.length != FRAME_HEX_LENGTH) return null
     if (cleaned.any { !it.isDigit() && it.lowercaseChar() !in 'a'..'f' }) return null
-    val bytes = runCatching { HexFormat.of().parseHex(cleaned) }.getOrNull() ?: return null
+    val bytes = ByteArray(cleaned.length / 2) { i ->
+        cleaned.substring(2 * i, 2 * i + 2).toInt(16).toByte()
+    }
     return bytes.takeIf { FrameKind.of(it) != null }
 }
 
