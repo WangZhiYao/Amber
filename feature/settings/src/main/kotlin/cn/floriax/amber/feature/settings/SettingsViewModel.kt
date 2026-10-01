@@ -1,33 +1,48 @@
 package cn.floriax.amber.feature.settings
 
-import cn.floriax.amber.domain.device.model.ClockDevice
-import cn.floriax.amber.domain.device.model.ConnectionState
+import androidx.lifecycle.viewModelScope
+import cn.floriax.amber.domain.device.ClockRepository
+import cn.floriax.amber.domain.device.repository.DeviceRepository
 import cn.floriax.amber.shared.ui.base.BaseMVIViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Settings screen ViewModel (placeholder state, no device touched yet).
+ * Settings screen ViewModel: the device card projects the saved default
+ * device and the live connection; the auto-sync preference is local
+ * until preferences persistence lands.
  *
  * @author WangZhiYao
  * @since 2026/9/29
  */
 @HiltViewModel
-class SettingsViewModel @Inject constructor() : BaseMVIViewModel<SettingsUiState, Nothing>() {
+class SettingsViewModel @Inject constructor(
+    devices: DeviceRepository,
+    clock: ClockRepository,
+) : BaseMVIViewModel<SettingsUiState, Nothing>() {
 
-    override val initialState
-        get() = SettingsUiState(
-            defaultDevice = ClockDevice(
-                mac = "AA:BB:CC:DD:EE:FF",
-                alias = "客厅辉光钟",
-                advertisedName = "NIXIE",
-                isDefault = true,
-                lastConnectedAt = 0L,
-            ),
-            autoSync = true,
-            connection = ConnectionState.CONNECTED,
-            connectedMac = "AA:BB:CC:DD:EE:FF",
-        )
+    // Getter form: avoids the base-class construction-time initialization trap.
+    override val initialState: SettingsUiState get() = SettingsUiState()
+
+    init {
+        viewModelScope.launch {
+            devices.observeDevices().collect { list ->
+                intent {
+                    reduce { state.copy(defaultDevice = list.firstOrNull { it.isDefault }) }
+                }
+            }
+        }
+        viewModelScope.launch {
+            clock.deviceState.collect { s ->
+                intent {
+                    reduce {
+                        state.copy(connection = s.connection, connectedMac = s.deviceMac)
+                    }
+                }
+            }
+        }
+    }
 
     /** Toggles the auto-sync preference (local only). */
     fun setAutoSync(enabled: Boolean) {

@@ -11,9 +11,15 @@ import cn.floriax.amber.shared.ui.navigation.Navigator
  * @author WangZhiYao
  * @since 2026/9/29
  */
-fun EntryProviderScope<NavKey>.settingsSection(navigator: Navigator) {
+fun EntryProviderScope<NavKey>.settingsSection(
+    navigator: Navigator,
+    onOpenDevices: () -> Unit,
+) {
     entry<SettingsRoute> {
-        SettingsScreen(onOpenDebug = { navigator.navigate(DebugRoute) })
+        SettingsScreen(
+            onOpenDebug = { navigator.navigate(DebugRoute) },
+            onOpenDevices = onOpenDevices,
+        )
     }
     entry<DebugRoute> {
         DebugScreen(onBack = { navigator.goBack() })

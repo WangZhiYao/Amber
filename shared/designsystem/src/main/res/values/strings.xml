@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 设备管理底弹（无状态组件，宿主在 app 层） -->
+    <string name="device_my_devices">我的设备</string>
+    <string name="device_default">%1$s · 默认</string>
+    <string name="device_set_default">设为默认</string>
+    <string name="device_rename">重命名</string>
+    <string name="device_delete">删除</string>
+    <string name="device_scan_new">扫描新设备</string>
+    <string name="device_scanning">扫描中…</string>
+    <string name="device_scan_failed">扫描失败，请检查蓝牙是否开启</string>
+    <string name="device_rescan">重新扫描</string>
+    <string name="device_connect">连接</string>
+    <string name="device_disconnect">断开</string>
+    <string name="device_rssi">%1$d dBm</string>
+    <string name="device_rename_title">重命名</string>
+    <string name="device_rename_save">保存</string>
+    <string name="device_cancel">取消</string>
+</resources>

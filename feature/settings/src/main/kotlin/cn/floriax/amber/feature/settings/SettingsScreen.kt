@@ -39,6 +39,7 @@ import cn.floriax.amber.shared.ui.ext.collectState
 @Composable
 fun SettingsScreen(
     onOpenDebug: () -> Unit,
+    onOpenDevices: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel(),
 ) {
@@ -90,7 +91,7 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.outline,
                     )
                     OutlinedButton(
-                        onClick = { /* TODO: open device management */ },
+                        onClick = onOpenDevices,
                         modifier = Modifier.padding(top = 8.dp),
                     ) {
                         Text(stringResource(R.string.settings_manage_devices))

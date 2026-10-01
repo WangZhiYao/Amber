@@ -3,7 +3,7 @@
 
     <!-- Device card -->
     <string name="settings_device_card">设备</string>
-    <string name="settings_no_device">未绑定设备</string>
+    <string name="settings_no_device">暂无设备</string>
     <string name="settings_device_default">%1$s · 默认</string>
     <string name="settings_manage_devices">管理设备</string>
 

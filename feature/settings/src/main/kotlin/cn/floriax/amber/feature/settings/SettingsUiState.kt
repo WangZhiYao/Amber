@@ -4,12 +4,13 @@ import cn.floriax.amber.domain.device.model.ClockDevice
 import cn.floriax.amber.domain.device.model.ConnectionState
 
 /**
- * Settings screen state (placeholder values).
+ * Settings screen state.
  *
  * @author WangZhiYao
  * @since 2026/9/29
  */
 data class SettingsUiState(
+    /** The default device (connected automatically at startup). */
     val defaultDevice: ClockDevice? = null,
     val autoSync: Boolean = true,
     /** Connection state; the device row status dot is derived from it. */
