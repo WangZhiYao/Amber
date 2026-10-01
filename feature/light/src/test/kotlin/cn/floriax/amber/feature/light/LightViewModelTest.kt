@@ -68,12 +68,27 @@ class LightViewModelTest {
         override fun scan() = kotlinx.coroutines.flow.flowOf(emptyList<cn.floriax.amber.domain.device.model.DiscoveredDevice>())
     }
 
+    private val fakeDevices = object : cn.floriax.amber.domain.device.repository.DeviceRepository {
+        override fun observeDevices() = kotlinx.coroutines.flow.flowOf(
+            emptyList<ClockDevice>()
+        )
+        override suspend fun defaultDevice(): ClockDevice? = null
+        override suspend fun upsert(device: ClockDevice) = Unit
+        override suspend fun setDefault(mac: String) = Unit
+        override suspend fun setDefaultIfNone(mac: String) = Unit
+        override suspend fun rename(mac: String, alias: String) = Unit
+        override suspend fun delete(mac: String) = Unit
+    }
+
     private lateinit var viewModel: LightViewModel
 
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
-        viewModel = LightViewModel(fakeRepository, ScanAndConnectUseCase(fakeScanner, fakeRepository))
+        viewModel = LightViewModel(
+            fakeRepository,
+            ScanAndConnectUseCase(fakeScanner, fakeRepository, fakeDevices),
+        )
     }
 
     @After

@@ -3,6 +3,7 @@ package cn.floriax.amber.domain.device.usecase
 import cn.floriax.amber.domain.device.ClockRepository
 import cn.floriax.amber.domain.device.DeviceScanner
 import cn.floriax.amber.domain.device.model.ClockDevice
+import cn.floriax.amber.domain.device.repository.DeviceRepository
 import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
@@ -45,6 +46,7 @@ sealed interface ConnectResult {
 class ScanAndConnectUseCase @Inject constructor(
     private val scanner: DeviceScanner,
     private val clock: ClockRepository,
+    private val devices: DeviceRepository,
 ) {
     suspend operator fun invoke(): ConnectResult = try {
         // Bluetooth off is reported separately so the UI can guide the user to
@@ -58,9 +60,14 @@ class ScanAndConnectUseCase @Inject constructor(
                     mac = found.mac,
                     alias = found.name,
                     advertisedName = found.name,
-                    isDefault = true,
+                    isDefault = false,
                     lastConnectedAt = System.currentTimeMillis(),
                 )
+                // Connecting records the device: it shows up in "my
+                // devices" without any explicit bind action, and becomes
+                // the default when none exists yet.
+                devices.upsert(device)
+                devices.setDefaultIfNone(device.mac)
                 // connect never reports business failures; a failure here is a
                 // real failure of the connection flow itself.
                 clock.connect(device).getOrThrow()
