@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import cn.floriax.amber.core.database.AmberDatabase
 import cn.floriax.amber.core.database.dao.ClockDeviceDao
+import cn.floriax.amber.core.database.dao.PresetDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -31,4 +32,8 @@ object DatabaseModule {
     @Provides
     fun provideClockDeviceDao(database: AmberDatabase): ClockDeviceDao =
         database.clockDeviceDao()
+
+    @Provides
+    fun providePresetDao(database: AmberDatabase): PresetDao =
+        database.presetDao()
 }

@@ -9,6 +9,7 @@ import cn.floriax.amber.domain.device.usecase.ScanAndConnectUseCase
 import cn.floriax.amber.domain.light.Backlight
 import cn.floriax.amber.domain.light.BacklightMode
 import cn.floriax.amber.domain.light.Preset
+import cn.floriax.amber.domain.light.repository.PresetRepository
 import cn.floriax.amber.feature.light.components.hueDegreesToByte
 import cn.floriax.amber.shared.ui.base.BaseMVIViewModel
 import cn.floriax.amber.shared.ui.base.IntentContext
@@ -27,8 +28,7 @@ import javax.inject.Inject
  * edit state derived from the device only when a connection is freshly
  * established (a later report must not silently revert the user's choice).
  *
- * Presets are still local to this ViewModel — persistence lands with the
- * preset repository.
+ * Presets persist via [PresetRepository]; the list here is its projection.
  *
  * @author WangZhiYao
  * @since 2026/9/29
@@ -37,10 +37,8 @@ import javax.inject.Inject
 class LightViewModel @Inject constructor(
     private val clock: ClockRepository,
     private val scanAndConnect: ScanAndConnectUseCase,
+    private val presets: PresetRepository,
 ) : BaseMVIViewModel<LightUiState, LightSideEffect>() {
-
-    /** Next preset id (placeholder: local list, no persistence). */
-    private var nextPresetId = 1L
 
     /** Fallback name for a blank save-preset input. */
     private var saveFallbackName = ""
@@ -49,6 +47,11 @@ class LightViewModel @Inject constructor(
     override val initialState: LightUiState get() = LightUiState()
 
     init {
+        viewModelScope.launch {
+            presets.observePresets().collect { list ->
+                intent { reduce { copy(presets = list) } }
+            }
+        }
         viewModelScope.launch {
             clock.deviceState.collect { s ->
                 intent {
@@ -222,21 +225,12 @@ class LightViewModel @Inject constructor(
         reduce { copy(showSaveSheet = false) }
     }
 
-    /** Confirms saving: snapshots the current backlight into a new preset. */
+    /** Confirms saving: snapshots the current backlight into a new persisted preset. */
     fun onSaveConfirm() = intent {
         val name = state.saveName.ifBlank { saveFallbackName }
-        val preset = Preset(
-            id = nextPresetId++,
-            name = name,
-            backlight = state.backlight,
-            orderIndex = state.presets.size,
-        )
-        reduce {
-            copy(
-                showSaveSheet = false,
-                presets = state.presets + preset,
-            )
-        }
+        reduce { copy(showSaveSheet = false) }
+        presets.save(name, state.backlight)
+        // The list refresh arrives via observePresets.
     }
 
     /** Opens the long-press manage menu for a preset. */
@@ -252,25 +246,15 @@ class LightViewModel @Inject constructor(
     /** Renames the managed preset. */
     fun onRenamePreset(name: String) = intent {
         val target = state.managePreset ?: return@intent
-        reduce {
-            copy(
-                managePreset = null,
-                presets = state.presets.map {
-                    if (it.id == target.id) it.copy(name = name) else it
-                },
-            )
-        }
+        reduce { copy(managePreset = null) }
+        presets.rename(target.id, name)
     }
 
     /** Deletes the managed preset. */
     fun onDeletePreset() = intent {
         val target = state.managePreset ?: return@intent
-        reduce {
-            copy(
-                managePreset = null,
-                presets = state.presets.filterNot { it.id == target.id },
-            )
-        }
+        reduce { copy(managePreset = null) }
+        presets.delete(target.id)
     }
 
     // ---- Conflated backlight write channel ----

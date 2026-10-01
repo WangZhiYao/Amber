@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "afd16d5e6717adeed97d3b60d59d6ace",
+    "identityHash": "51b356b39bf78c59edb5a14a1aa62d92",
     "entities": [
       {
         "tableName": "clock_devices",
@@ -45,11 +45,101 @@
             "mac"
           ]
         }
+      },
+      {
+        "tableName": "presets",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `order_index` INTEGER NOT NULL, `hue_0` INTEGER NOT NULL, `hue_1` INTEGER NOT NULL, `hue_2` INTEGER NOT NULL, `hue_3` INTEGER NOT NULL, `sat_0` INTEGER NOT NULL, `sat_1` INTEGER NOT NULL, `sat_2` INTEGER NOT NULL, `sat_3` INTEGER NOT NULL, `brightness` INTEGER NOT NULL, `mode_code` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "orderIndex",
+            "columnName": "order_index",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hue0",
+            "columnName": "hue_0",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hue1",
+            "columnName": "hue_1",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hue2",
+            "columnName": "hue_2",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hue3",
+            "columnName": "hue_3",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sat0",
+            "columnName": "sat_0",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sat1",
+            "columnName": "sat_1",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sat2",
+            "columnName": "sat_2",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sat3",
+            "columnName": "sat_3",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "brightness",
+            "columnName": "brightness",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modeCode",
+            "columnName": "mode_code",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'afd16d5e6717adeed97d3b60d59d6ace')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '51b356b39bf78c59edb5a14a1aa62d92')"
     ]
   }
 }

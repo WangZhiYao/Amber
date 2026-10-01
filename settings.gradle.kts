@@ -30,6 +30,7 @@ include(":core:database")
 include(":core:ble")
 
 include(":data:device")
+include(":data:light")
 
 include(":domain:device")
 include(":domain:light")

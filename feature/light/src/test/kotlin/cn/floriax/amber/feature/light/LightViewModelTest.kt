@@ -80,6 +80,24 @@ class LightViewModelTest {
         override suspend fun delete(mac: String) = Unit
     }
 
+    private val fakePresets = object : cn.floriax.amber.domain.light.repository.PresetRepository {
+        val presets = MutableStateFlow<List<cn.floriax.amber.domain.light.Preset>>(emptyList())
+        val saved = mutableListOf<Pair<String, Backlight>>()
+        var renamed: Pair<Long, String>? = null
+        var deletedId: Long? = null
+        override fun observePresets() = presets
+        override suspend fun save(name: String, backlight: Backlight): Long {
+            saved.add(name to backlight)
+            return saved.size.toLong()
+        }
+        override suspend fun rename(id: Long, name: String) {
+            renamed = id to name
+        }
+        override suspend fun delete(id: Long) {
+            deletedId = id
+        }
+    }
+
     private lateinit var viewModel: LightViewModel
 
     @Before
@@ -88,6 +106,7 @@ class LightViewModelTest {
         viewModel = LightViewModel(
             fakeRepository,
             ScanAndConnectUseCase(fakeScanner, fakeRepository, fakeDevices),
+            fakePresets,
         )
     }
 
@@ -160,5 +179,14 @@ class LightViewModelTest {
         firstWriteGate.complete(Unit)
 
         assertEquals(listOf(100, 250), sentBacklights.map { it.brightness })
+    }
+
+    @Test
+    fun `保存预设写入仓库`() {
+        viewModel.onSaveOpen("静态 · 蓝", "预设")
+        viewModel.onSaveConfirm()
+
+        // The save goes to the repository; the list itself is its projection.
+        assertEquals("静态 · 蓝" to viewModel.uiState.value.backlight, fakePresets.saved.single())
     }
 }
