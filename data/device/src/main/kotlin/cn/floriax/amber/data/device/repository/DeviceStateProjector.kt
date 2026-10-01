@@ -57,27 +57,36 @@ internal class DeviceStateProjector(private val logger: FrameLogAggregator) {
         _handshakeBits.value = 0
     }
 
-    /** Device report → state projection. The device is the source of truth: a valid frame updates its fields (also tolerates proactive pushes). */
+    /**
+     * Device report → state projection. The device is the source of truth: a
+     * valid frame updates its fields (also tolerates proactive pushes).
+     * Invariant: the handshake bit is set only AFTER the projection (and the
+     * reserved-byte echo) is committed — completing the handshake resumes
+     * tryConnect inline on Main.immediate (inside the bit update), whose
+     * autoSync reads deviceState; signalling before the commit made it write
+     * the pre-report timers (defaults after a cold start) back to the device,
+     * erasing its stored timer values.
+     */
     fun onFrame(bytes: ByteArray) {
         when (FrameKind.of(bytes)) {
             FrameKind.LED -> LedFrame.parse(bytes)?.let { f ->
                 logger.rx(bytes)
-                _handshakeBits.update { it or LED_BIT }
                 ledReserved = f.reserved
                 update { it.copy(backlight = f.toBacklight()) }
+                _handshakeBits.update { it or LED_BIT }
             } ?: logger.sys("Ignored malformed LED frame ${bytes.toHexDisplay()}")
 
             FrameKind.SWITCH -> SwitchFrame.parse(bytes)?.let { f ->
                 logger.rx(bytes)
-                _handshakeBits.update { it or SWITCH_BIT }
                 switchByte4 = f.byte4
                 update { it.copy(switches = f.toSwitchConfig()) }
+                _handshakeBits.update { it or SWITCH_BIT }
             } ?: logger.sys("Ignored malformed switch frame ${bytes.toHexDisplay()}")
 
             FrameKind.TIME -> TimeFrame.parse(bytes)?.let { f ->
                 logger.rx(bytes)
-                _handshakeBits.update { it or TIME_BIT }
                 update { it.copy(timers = f.toTimeConfig()) }
+                _handshakeBits.update { it or TIME_BIT }
             } ?: logger.sys("Ignored malformed time frame ${bytes.toHexDisplay()}")
 
             else -> logger.sys("Ignored unknown frame ${bytes.toHexDisplay()}")
