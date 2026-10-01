@@ -12,7 +12,10 @@ import cn.floriax.amber.domain.device.model.ClockDevice
 import cn.floriax.amber.domain.device.model.ConnectionState
 import cn.floriax.amber.domain.light.Backlight
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -144,6 +147,41 @@ class ClockRepositoryConnectTest {
         // Automatic sync must also refresh "last sync" (previously only the
         // manual sync wrote it, so the UI showed a stale timestamp).
         assertNotNull("auto sync should record lastSyncAt", repo.deviceState.value.lastSyncAt)
+    }
+
+    /**
+     * Regression: the handshake-done bit must be raised only AFTER the
+     * report's projection is committed. Production runs on Main.immediate —
+     * completing the handshake resumes tryConnect INLINE (inside the bit
+     * update), so autoSync used to read the pre-report timers (defaults
+     * 00:00 after a cold start) and overwrote the device's stored timers
+     * with zeros; the projection landed afterwards and masked the erase
+     * until the next reconnect reported 00:00. Unconfined reproduces the
+     * inline resumption deterministically (runTest's StandardTestDispatcher
+     * always queues, which is why the plain tests never saw this).
+     */
+    @Test
+    fun `自动校时必须回读设备回报的定时而非报告前旧值`() = runTest {
+        val fake = FakeBleClient()
+        val conn = FakeBleConnection()
+        fake.connectBehavior = { conn }
+        val repo = ClockRepositoryImpl(
+            ble = fake,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+            logger = FrameLogAggregator(),
+            now = { LocalDateTime.of(2026, 9, 27, 12, 3, 45) },
+            autoSync = { true },
+        )
+        CoroutineScope(SupervisorJob() + Dispatchers.Unconfined).launch { repo.connect(device) }
+        repo.onFrame(goldenLed)
+        repo.onFrame(goldenSwitch)
+        repo.onFrame(goldenTime)   // completes the handshake → inline autoSync
+        // The sync frame must echo the REPORTED timer (on-hour=08 at byte10),
+        // not the pre-report defaults (00:00).
+        assertEquals(
+            "99-2D-03-0C-1B-09-1A-00-00-00-08-00-00-66",
+            conn.written.last { (it[0].toInt() and 0xFF) == 0x99 }.toHexDisplay(),
+        )
     }
 
     @Test
