@@ -10,5 +10,6 @@ android {
 dependencies {
     implementation(libs.androidx.paging.compose)
 
+    implementation(project(":core:ble"))
     implementation(project(":domain:device"))
 }
