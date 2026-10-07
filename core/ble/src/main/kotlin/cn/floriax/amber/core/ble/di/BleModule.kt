@@ -17,9 +17,9 @@ import javax.inject.Singleton
  */
 @Module
 @InstallIn(SingletonComponent::class)
-interface BleModule {
+abstract class BleModule {
 
     @Binds
     @Singleton
-    fun bindBleClient(impl: NordicBleManager): BleClient
+    abstract fun bindBleClient(impl: NordicBleManager): BleClient
 }

@@ -264,24 +264,32 @@ class ClockRepositoryImpl(
         // skipped due to "a sequence is already running".
         projector.update { it.copy(connection = ConnectionState.RECONNECTING) }
         if (reconnectJob?.isActive == true) return   // already running: don't restart the backoff
-        reconnectJob = scope.launch {
-            for (backoffMs in RECONNECT_BACKOFF_MS) {
-                if (!backoffElapsed(gen, backoffMs)) return@launch
-                if (reconnectSucceeded(mac, gen)) return@launch
-                // This attempt failed: stay RECONNECTING, continue the backoff.
-                projector.update { it.copy(connection = ConnectionState.RECONNECTING) }
-            }
-            if (gen != generation) return@launch
-            // Fast backoff exhausted: fall back to disconnected (manual retry
-            // available), slow retries continue in the background.
+        reconnectJob = scope.launch { runReconnectBackoff(mac, gen) }
+    }
+
+    /**
+     * The reconnect backoff sequence: the fast backoff (1s/2s/4s, at most 3
+     * attempts), then — never giving up — the slow 30s retry loop. Returns
+     * when reconnected or superseded ([gen] no longer current / user
+     * disconnected).
+     */
+    private suspend fun runReconnectBackoff(mac: String, gen: Long) {
+        for (backoffMs in RECONNECT_BACKOFF_MS) {
+            if (!backoffElapsed(gen, backoffMs)) return
+            if (reconnectSucceeded(mac, gen)) return
+            // This attempt failed: stay RECONNECTING, continue the backoff.
+            projector.update { it.copy(connection = ConnectionState.RECONNECTING) }
+        }
+        if (gen != generation) return
+        // Fast backoff exhausted: fall back to disconnected (manual retry
+        // available), slow retries continue in the background.
+        projector.update { it.copy(connection = ConnectionState.DISCONNECTED) }
+        logger.sys("Reconnect exhausted, retrying every ${RECONNECT_SLOW_MS / 1_000}s")
+        while (true) {
+            if (!backoffElapsed(gen, RECONNECT_SLOW_MS)) return
+            projector.update { it.copy(connection = ConnectionState.RECONNECTING) }
+            if (reconnectSucceeded(mac, gen)) return
             projector.update { it.copy(connection = ConnectionState.DISCONNECTED) }
-            logger.sys("Reconnect exhausted, retrying every ${RECONNECT_SLOW_MS / 1_000}s")
-            while (true) {
-                if (!backoffElapsed(gen, RECONNECT_SLOW_MS)) return@launch
-                projector.update { it.copy(connection = ConnectionState.RECONNECTING) }
-                if (reconnectSucceeded(mac, gen)) return@launch
-                projector.update { it.copy(connection = ConnectionState.DISCONNECTED) }
-            }
         }
     }
 
