@@ -7,4 +7,12 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.hilt.android) apply false
     alias(libs.plugins.room) apply false
+    alias(libs.plugins.sonarqube)
+}
+
+sonar {
+    properties {
+        property("sonar.projectKey", "Amber")
+        property("sonar.projectName", "Amber")
+    }
 }
