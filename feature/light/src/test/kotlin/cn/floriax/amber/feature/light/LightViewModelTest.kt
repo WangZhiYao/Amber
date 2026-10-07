@@ -6,12 +6,17 @@ import cn.floriax.amber.domain.device.ClockRepository
 import cn.floriax.amber.domain.device.DeviceScanner
 import cn.floriax.amber.domain.device.model.ClockDevice
 import cn.floriax.amber.domain.device.model.DeviceState
+import cn.floriax.amber.domain.device.model.DiscoveredDevice
 import cn.floriax.amber.domain.device.model.FrameLog
+import cn.floriax.amber.domain.device.repository.DeviceRepository
 import cn.floriax.amber.domain.device.usecase.ScanAndConnectUseCase
 import cn.floriax.amber.domain.light.Backlight
+import cn.floriax.amber.domain.light.Preset
+import cn.floriax.amber.domain.light.repository.PresetRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -57,6 +62,7 @@ class LightViewModelTest {
             sentBacklights.add(config)
             return Result.success(Unit)
         }
+
         override suspend fun sendTimers(timers: TimeConfig) = Result.success(Unit)
         override suspend fun sendSwitches(config: SwitchConfig) = Result.success(Unit)
         override suspend fun syncTime() = Result.success(Unit)
@@ -65,13 +71,11 @@ class LightViewModelTest {
 
     private val fakeScanner = object : DeviceScanner {
         override val isBluetoothEnabled = true
-        override fun scan() = kotlinx.coroutines.flow.flowOf(emptyList<cn.floriax.amber.domain.device.model.DiscoveredDevice>())
+        override fun scan() = flowOf(emptyList<DiscoveredDevice>())
     }
 
-    private val fakeDevices = object : cn.floriax.amber.domain.device.repository.DeviceRepository {
-        override fun observeDevices() = kotlinx.coroutines.flow.flowOf(
-            emptyList<ClockDevice>()
-        )
+    private val fakeDevices = object : DeviceRepository {
+        override fun observeDevices() = flowOf(emptyList<ClockDevice>())
         override suspend fun defaultDevice(): ClockDevice? = null
         override suspend fun upsert(device: ClockDevice) = Unit
         override suspend fun setDefault(mac: String) = Unit
@@ -80,8 +84,8 @@ class LightViewModelTest {
         override suspend fun delete(mac: String) = Unit
     }
 
-    private val fakePresets = object : cn.floriax.amber.domain.light.repository.PresetRepository {
-        val presets = MutableStateFlow<List<cn.floriax.amber.domain.light.Preset>>(emptyList())
+    private val fakePresets = object : PresetRepository {
+        val presets = MutableStateFlow<List<Preset>>(emptyList())
         val saved = mutableListOf<Pair<String, Backlight>>()
         var renamed: Pair<Long, String>? = null
         var deletedId: Long? = null
@@ -90,9 +94,11 @@ class LightViewModelTest {
             saved.add(name to backlight)
             return saved.size.toLong()
         }
+
         override suspend fun rename(id: Long, name: String) {
             renamed = id to name
         }
+
         override suspend fun delete(id: Long) {
             deletedId = id
         }

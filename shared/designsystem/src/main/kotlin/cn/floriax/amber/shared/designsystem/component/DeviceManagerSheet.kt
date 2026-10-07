@@ -51,6 +51,36 @@ data class ScanResultUi(
 )
 
 /**
+ * Snapshot of everything the sheet renders, grouped to keep the composable
+ * signature small.
+ *
+ * @author WangZhiYao
+ * @since 2026/10/7
+ */
+data class DeviceManagerSheetUiState(
+    val devices: List<SavedDeviceUi> = emptyList(),
+    val scanResults: List<ScanResultUi> = emptyList(),
+    val scanning: Boolean = false,
+    val scanFailed: Boolean = false,
+)
+
+/**
+ * Sheet callbacks (connect / manage / rescan), grouped the same way.
+ *
+ * @author WangZhiYao
+ * @since 2026/10/7
+ */
+class DeviceManagerSheetActions(
+    val onConnect: (ScanResultUi) -> Unit,
+    val onConnectSaved: (SavedDeviceUi) -> Unit,
+    val onDisconnect: () -> Unit,
+    val onSetDefault: (String) -> Unit,
+    val onRename: (String, String) -> Unit,
+    val onDelete: (String) -> Unit,
+    val onRescan: () -> Unit,
+)
+
+/**
  * Device manager bottom sheet: saved devices (set default / rename /
  * delete) plus the live scan (connect). Ported control-by-control from
  * the prototype's DeviceSheet; stateless — the host in :shared/ui feeds
@@ -62,18 +92,9 @@ data class ScanResultUi(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceManagerSheet(
-    devices: List<SavedDeviceUi>,
-    scanResults: List<ScanResultUi>,
-    scanning: Boolean,
-    scanFailed: Boolean,
+    state: DeviceManagerSheetUiState,
     onDismiss: () -> Unit,
-    onConnect: (ScanResultUi) -> Unit,
-    onConnectSaved: (SavedDeviceUi) -> Unit,
-    onDisconnect: () -> Unit,
-    onSetDefault: (String) -> Unit,
-    onRename: (String, String) -> Unit,
-    onDelete: (String) -> Unit,
-    onRescan: () -> Unit,
+    actions: DeviceManagerSheetActions,
 ) {
     var renameTarget by remember { mutableStateOf<SavedDeviceUi?>(null) }
 
@@ -89,14 +110,14 @@ fun DeviceManagerSheet(
                 stringResource(R.string.device_my_devices),
                 color = MaterialTheme.colorScheme.primary,
             )
-            devices.forEach { device ->
+            state.devices.forEach { device ->
                 SavedDeviceRow(
                     device = device,
-                    onConnect = { onConnectSaved(device) },
-                    onDisconnect = onDisconnect,
-                    onSetDefault = { onSetDefault(device.mac) },
+                    onConnect = { actions.onConnectSaved(device) },
+                    onDisconnect = actions.onDisconnect,
+                    onSetDefault = { actions.onSetDefault(device.mac) },
                     onRename = { renameTarget = device },
-                    onDelete = { onDelete(device.mac) },
+                    onDelete = { actions.onDelete(device.mac) },
                 )
             }
 
@@ -105,23 +126,23 @@ fun DeviceManagerSheet(
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 10.dp),
             )
-            scanResults.forEach { result ->
-                ScanResultRow(result = result, onConnect = { onConnect(result) })
+            state.scanResults.forEach { result ->
+                ScanResultRow(result = result, onConnect = { actions.onConnect(result) })
             }
-            if (scanning) {
+            if (state.scanning) {
                 Text(
                     stringResource(R.string.device_scanning),
                     color = MaterialTheme.colorScheme.outline,
                 )
             } else {
-                if (scanFailed) {
+                if (state.scanFailed) {
                     Text(
                         stringResource(R.string.device_scan_failed),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.outline,
                     )
                 }
-                TextButton(onClick = onRescan) {
+                TextButton(onClick = actions.onRescan) {
                     Text(stringResource(R.string.device_rescan))
                 }
             }
@@ -142,7 +163,7 @@ fun DeviceManagerSheet(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    onRename(device.mac, name)
+                    actions.onRename(device.mac, name)
                     renameTarget = null
                 }) { Text(stringResource(R.string.device_rename_save)) }
             },

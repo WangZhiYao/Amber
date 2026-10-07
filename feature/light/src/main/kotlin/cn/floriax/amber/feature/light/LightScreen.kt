@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
@@ -59,6 +60,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cn.floriax.amber.domain.device.model.ConnectionState
+import cn.floriax.amber.domain.light.Preset
 import cn.floriax.amber.feature.light.components.DigitPreview
 import cn.floriax.amber.feature.light.components.HueSwatchRow
 import cn.floriax.amber.feature.light.components.HueWheel
@@ -123,6 +125,110 @@ fun LightScreen(
         }
     }
 
+    LightSideEffectHandler(
+        viewModel = viewModel,
+        onEnableBluetooth = {
+            enableBluetoothLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+        },
+    )
+
+    // Hue sheet: non-null tapped group = open. Any tube opens the sheet when
+    // the mode supports custom colors; otherwise a toast explains why not.
+    var hueSheetGroup by remember { mutableStateOf<Int?>(null) }
+
+    // Default preset name: mode label + color name of the edited group's hue.
+    val presetDefaultName = stringResource(
+        R.string.preset_default_name,
+        stringResource(state.backlight.mode.labelRes),
+        stringResource(
+            hueNameRes(
+                state.backlight.hues[if (state.sameColor) 0 else state.selectedGroup].toHueDegrees(),
+            ),
+        ),
+    )
+    val presetFallbackName = stringResource(R.string.preset_fallback_name)
+
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            AmberTopBar(
+                title = stringResource(R.string.tab_light),
+                actions = {
+                    LightConnectionPill(
+                        state = state,
+                        onOpenDevices = onOpenDevices,
+                        permissionLauncher = permissionLauncher,
+                        viewModel = viewModel,
+                    )
+                },
+            )
+        },
+        // Status bar inset is consumed by the outer Scaffold.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            DigitsPreviewCard(
+                state = state,
+                viewModel = viewModel,
+                onOpenHueSheet = { hueSheetGroup = it },
+            )
+            ParametersCard(state = state, connected = connected, viewModel = viewModel)
+            PresetsCard(
+                state = state,
+                connected = connected,
+                viewModel = viewModel,
+                defaultName = presetDefaultName,
+                fallbackName = presetFallbackName,
+            )
+        }
+
+        // Color editor sheet for the tapped group (or all four at once in
+        // unified mode): hue wheel + contrast slider. Hue commits on wheel
+        // release; dismiss by dragging down.
+        hueSheetGroup?.let { group ->
+            HueSheet(group = group, state = state, viewModel = viewModel) {
+                hueSheetGroup = null
+            }
+        }
+
+        // Apply-confirmation dialog.
+        state.applyConfirmPreset?.let { preset ->
+            ApplyConfirmDialog(preset = preset, viewModel = viewModel)
+        }
+
+        // Save-preset sheet: config snapshot + name input.
+        if (state.showSaveSheet) {
+            SavePresetSheet(state = state, viewModel = viewModel)
+        }
+
+        // Long-press manage menu: rename + delete.
+        state.managePreset?.let { preset ->
+            ManagePresetSheet(preset = preset, viewModel = viewModel)
+        }
+    }
+}
+
+/**
+ * Maps one-shot [LightSideEffect]s to toasts; Bluetooth-off hands off to
+ * [onEnableBluetooth] (the system enable dialog, owned by the screen).
+ *
+ * @author WangZhiYao
+ * @since 2026/10/7
+ */
+@Composable
+private fun LightSideEffectHandler(
+    viewModel: LightViewModel,
+    onEnableBluetooth: () -> Unit,
+) {
+    val context = LocalContext.current
+    val resources = LocalResources.current
     viewModel.collectSideEffect { effect ->
         when (effect) {
             LightSideEffect.NotConnected -> Toast.makeText(
@@ -149,338 +255,370 @@ fun LightScreen(
                 Toast.LENGTH_SHORT,
             ).show()
 
-            LightSideEffect.BluetoothOff -> enableBluetoothLauncher.launch(
-                Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE),
+            LightSideEffect.BluetoothOff -> onEnableBluetooth()
+        }
+    }
+}
+
+/**
+ * Connection pill: the manual retry entry when disconnected (asking for
+ * permissions first), otherwise it opens device management.
+ *
+ * @author WangZhiYao
+ * @since 2026/10/7
+ */
+@Composable
+private fun LightConnectionPill(
+    state: LightUiState,
+    onOpenDevices: () -> Unit,
+    permissionLauncher: ActivityResultLauncher<Array<String>>,
+    viewModel: LightViewModel,
+) {
+    val context = LocalContext.current
+    ConnectionPill(
+        label = if (state.scanning) {
+            stringResource(R.string.connection_scanning)
+        } else {
+            connectionLabel(state.connection, state.deviceName)
+        },
+        dotColor = connectionDotColor(state.connection),
+        // Disconnected (including failed reconnection): the pill is
+        // the manual retry entry; otherwise it opens device management.
+        onClick = {
+            if (state.connection != ConnectionState.DISCONNECTED) {
+                onOpenDevices()
+            } else if (context.hasBlePermissions()) {
+                viewModel.onRetryConnect()
+            } else {
+                permissionLauncher.launch(requiredBlePermissions())
+            }
+        },
+        modifier = Modifier.padding(end = 12.dp),
+    )
+}
+
+/**
+ * Digit tube preview card: same-color switch + tappable preview. Tapping a
+ * tube opens the hue sheet ([onOpenHueSheet]) when the mode supports custom
+ * colors; otherwise a toast explains why not.
+ *
+ * @author WangZhiYao
+ * @since 2026/10/7
+ */
+@Composable
+private fun DigitsPreviewCard(
+    state: LightUiState,
+    viewModel: LightViewModel,
+    onOpenHueSheet: (Int) -> Unit,
+) {
+    val context = LocalContext.current
+    val resources = LocalResources.current
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.light_digits_preview),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = stringResource(R.string.light_sync),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(end = 8.dp),
+                )
+                Switch(
+                    checked = state.sameColor,
+                    onCheckedChange = viewModel::setSameColor,
+                )
+            }
+            DigitPreview(
+                hues = state.backlight.hues,
+                saturations = state.backlight.saturations,
+                brightness = state.backlight.brightness,
+                colonBlink = state.colonBlink,
+                onGroupTap = { group ->
+                    if (state.backlight.mode.supportsCustomColor) {
+                        if (!state.sameColor) viewModel.selectGroup(group)
+                        onOpenHueSheet(group)
+                    } else {
+                        Toast.makeText(
+                            context,
+                            resources.getString(R.string.light_mode_no_custom),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                },
+                modifier = Modifier.padding(top = 12.dp),
             )
         }
     }
+}
 
-    // Hue sheet: non-null tapped group = open. Any tube opens the sheet when
-    // the mode supports custom colors; otherwise a toast explains why not.
-    var hueSheetGroup by remember { mutableStateOf<Int?>(null) }
-
-    // Default preset name: mode label + color name of the edited group's hue.
-    val presetDefaultName = stringResource(
-        R.string.preset_default_name,
-        stringResource(state.backlight.mode.labelRes),
-        stringResource(
-            hueNameRes(
-                state.backlight.hues[if (state.sameColor) 0 else state.selectedGroup].toHueDegrees(),
-            ),
-        ),
-    )
-    val presetFallbackName = stringResource(R.string.preset_fallback_name)
-
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            AmberTopBar(
-                title = stringResource(R.string.tab_light),
-                actions = {
-                    ConnectionPill(
-                        label = if (state.scanning) {
-                            stringResource(R.string.connection_scanning)
-                        } else {
-                            connectionLabel(state.connection, state.deviceName)
-                        },
-                        dotColor = connectionDotColor(state.connection),
-                        // Disconnected (including failed reconnection): the pill is
-                        // the manual retry entry; otherwise it opens device management.
-                        onClick = {
-                            if (state.connection != ConnectionState.DISCONNECTED) {
-                                onOpenDevices()
-                            } else if (context.hasBlePermissions()) {
-                                viewModel.onRetryConnect()
-                            } else {
-                                permissionLauncher.launch(requiredBlePermissions())
-                            }
-                        },
-                        modifier = Modifier.padding(end = 12.dp),
-                    )
-                },
+/** Parameter card: brightness slider and mode chips (global). */
+@Composable
+private fun ParametersCard(
+    state: LightUiState,
+    connected: Boolean,
+    viewModel: LightViewModel,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            SliderRow(
+                label = stringResource(R.string.light_brightness),
+                value = state.backlight.brightness,
+                enabled = connected,
+                // Drag = local preview only; the LED frame goes out on release.
+                onValueChange = viewModel::previewBrightness,
+                onFinish = viewModel::setBrightness,
             )
-        },
-        // Status bar inset is consumed by the outer Scaffold.
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-    ) { padding ->
+            Text(
+                text = stringResource(R.string.light_mode),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                BACKLIGHT_MODE_UI_ORDER.forEach { mode ->
+                    FilterChip(
+                        selected = state.backlight.mode == mode,
+                        onClick = { viewModel.setMode(mode) },
+                        label = { Text(stringResource(mode.labelRes)) },
+                        enabled = connected,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Preset card: save button (default name from [defaultName]/[fallbackName]) + preset chips. */
+@Composable
+private fun PresetsCard(
+    state: LightUiState,
+    connected: Boolean,
+    viewModel: LightViewModel,
+    defaultName: String,
+    fallbackName: String,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.light_presets),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                FilledIconButton(
+                    onClick = {
+                        viewModel.onSaveOpen(
+                            defaultName,
+                            fallbackName
+                        )
+                    },
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = stringResource(R.string.light_save_preset),
+                    )
+                }
+            }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                state.presets.forEach { preset ->
+                    PresetChip(
+                        name = preset.name,
+                        enabled = connected,
+                        onClick = { if (connected) viewModel.onPresetClick(preset) },
+                        onLongClick = { viewModel.onPresetLongPress(preset) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Color editor sheet for the tapped [group] (or all four at once in
+ * unified mode): hue wheel + contrast slider. Hue commits on wheel release;
+ * dismiss by dragging down.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HueSheet(
+    group: Int,
+    state: LightUiState,
+    viewModel: LightViewModel,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Digit tube preview card.
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(R.string.light_digits_preview),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        Text(
-                            text = stringResource(R.string.light_sync),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = 8.dp),
-                        )
-                        Switch(
-                            checked = state.sameColor,
-                            onCheckedChange = viewModel::setSameColor,
-                        )
-                    }
-                    DigitPreview(
-                        hues = state.backlight.hues,
-                        saturations = state.backlight.saturations,
-                        brightness = state.backlight.brightness,
-                        colonBlink = state.colonBlink,
-                        onGroupTap = { group ->
-                            if (state.backlight.mode.supportsCustomColor) {
-                                if (!state.sameColor) viewModel.selectGroup(group)
-                                hueSheetGroup = group
-                            } else {
-                                Toast.makeText(
-                                    context,
-                                    resources.getString(R.string.light_mode_no_custom),
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                            }
-                        },
-                        modifier = Modifier.padding(top = 12.dp),
-                    )
-                }
-            }
-
-            // Parameter card: brightness slider and mode chips (global).
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    SliderRow(
-                        label = stringResource(R.string.light_brightness),
-                        value = state.backlight.brightness,
-                        enabled = connected,
-                        // Drag = local preview only; the LED frame goes out on release.
-                        onValueChange = viewModel::previewBrightness,
-                        onFinish = viewModel::setBrightness,
-                    )
-                    Text(
-                        text = stringResource(R.string.light_mode),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        BACKLIGHT_MODE_UI_ORDER.forEach { mode ->
-                            FilterChip(
-                                selected = state.backlight.mode == mode,
-                                onClick = { viewModel.setMode(mode) },
-                                label = { Text(stringResource(mode.labelRes)) },
-                                enabled = connected,
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Preset card: save button + horizontal preset chips.
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(R.string.light_presets),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        FilledIconButton(
-                            onClick = {
-                                viewModel.onSaveOpen(
-                                    presetDefaultName,
-                                    presetFallbackName
-                                )
-                            },
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                            ),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Add,
-                                contentDescription = stringResource(R.string.light_save_preset),
-                            )
-                        }
-                    }
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        state.presets.forEach { preset ->
-                            PresetChip(
-                                name = preset.name,
-                                enabled = connected,
-                                onClick = { if (connected) viewModel.onPresetClick(preset) },
-                                onLongClick = { viewModel.onPresetLongPress(preset) },
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Color editor sheet for the tapped group (or all four at once in
-        // unified mode): hue wheel + contrast slider. Hue commits on wheel
-        // release; dismiss by dragging down.
-        hueSheetGroup?.let { group ->
-            ModalBottomSheet(onDismissRequest = { hueSheetGroup = null }) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .padding(bottom = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    val hueIndex = if (state.sameColor) 0 else group
-                    HueWheel(
-                        hueByte = state.backlight.hues[hueIndex],
-                        enabled = true,
-                        onHueChangeFinished = viewModel::setHueDegrees,
-                    )
-                    Text(
-                        text = stringResource(
-                            R.string.light_hue,
-                            state.backlight.hues[hueIndex].toHueDegrees(),
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    // Contrast targets the same group(s) as the wheel above;
-                    // drag previews locally, the frame goes out on release.
-                    SliderRow(
-                        label = stringResource(R.string.light_contrast),
-                        value = state.backlight.saturations[hueIndex],
-                        enabled = true,
-                        onValueChange = viewModel::previewSaturation,
-                        onFinish = viewModel::setSaturation,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-        }
-
-        // Apply-confirmation dialog.
-        state.applyConfirmPreset?.let { preset ->
-            AlertDialog(
-                onDismissRequest = viewModel::onApplyDismiss,
-                title = { Text(stringResource(R.string.light_apply_preset)) },
-                text = { Text(stringResource(R.string.light_apply_confirm, preset.name)) },
-                confirmButton = {
-                    TextButton(onClick = viewModel::onApplyConfirm) {
-                        Text(stringResource(R.string.common_apply))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = viewModel::onApplyDismiss) {
-                        Text(stringResource(R.string.common_cancel))
-                    }
-                },
+            val hueIndex = if (state.sameColor) 0 else group
+            HueWheel(
+                hueByte = state.backlight.hues[hueIndex],
+                enabled = true,
+                onHueChangeFinished = viewModel::setHueDegrees,
+            )
+            Text(
+                text = stringResource(
+                    R.string.light_hue,
+                    state.backlight.hues[hueIndex].toHueDegrees(),
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            // Contrast targets the same group(s) as the wheel above;
+            // drag previews locally, the frame goes out on release.
+            SliderRow(
+                label = stringResource(R.string.light_contrast),
+                value = state.backlight.saturations[hueIndex],
+                enabled = true,
+                onValueChange = viewModel::previewSaturation,
+                onFinish = viewModel::setSaturation,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
+    }
+}
 
-        // Save-preset sheet: config snapshot + name input.
-        if (state.showSaveSheet) {
-            ModalBottomSheet(onDismissRequest = viewModel::onSaveDismiss) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = stringResource(R.string.light_save_preset),
-                        style = MaterialTheme.typography.titleMedium,
+/** Apply-confirmation dialog for a tapped preset. */
+@Composable
+private fun ApplyConfirmDialog(
+    preset: Preset,
+    viewModel: LightViewModel,
+) {
+    AlertDialog(
+        onDismissRequest = viewModel::onApplyDismiss,
+        title = { Text(stringResource(R.string.light_apply_preset)) },
+        text = { Text(stringResource(R.string.light_apply_confirm, preset.name)) },
+        confirmButton = {
+            TextButton(onClick = viewModel::onApplyConfirm) {
+                Text(stringResource(R.string.common_apply))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = viewModel::onApplyDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+    )
+}
+
+/** Save-preset sheet: config snapshot + name input. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SavePresetSheet(
+    state: LightUiState,
+    viewModel: LightViewModel,
+) {
+    ModalBottomSheet(onDismissRequest = viewModel::onSaveDismiss) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = stringResource(R.string.light_save_preset),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            // Config snapshot: four swatches + parameter summary.
+            HueSwatchRow(
+                hues = state.backlight.hues,
+                saturation = state.backlight.saturations[0],
+                modifier = Modifier.padding(top = 12.dp),
+            )
+            Text(
+                text = if (state.sameColor) {
+                    stringResource(
+                        R.string.light_save_summary,
+                        state.backlight.hues[0].toHueDegrees(),
+                        state.backlight.saturations[0],
+                        state.backlight.brightness,
+                        stringResource(state.backlight.mode.labelRes),
                     )
-                    // Config snapshot: four swatches + parameter summary.
-                    HueSwatchRow(
-                        hues = state.backlight.hues,
-                        saturation = state.backlight.saturations[0],
-                        modifier = Modifier.padding(top = 12.dp),
+                } else {
+                    stringResource(
+                        R.string.light_save_summary_multi,
+                        state.backlight.saturations[0],
+                        state.backlight.brightness,
+                        stringResource(state.backlight.mode.labelRes),
                     )
-                    Text(
-                        text = if (state.sameColor) {
-                            stringResource(
-                                R.string.light_save_summary,
-                                state.backlight.hues[0].toHueDegrees(),
-                                state.backlight.saturations[0],
-                                state.backlight.brightness,
-                                stringResource(state.backlight.mode.labelRes),
-                            )
-                        } else {
-                            stringResource(
-                                R.string.light_save_summary_multi,
-                                state.backlight.saturations[0],
-                                state.backlight.brightness,
-                                stringResource(state.backlight.mode.labelRes),
-                            )
-                        },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 8.dp),
-                    )
-                    OutlinedTextField(
-                        value = state.saveName,
-                        onValueChange = viewModel::onSaveNameChange,
-                        label = { Text(stringResource(R.string.common_name)) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.End,
-                    ) {
-                        TextButton(onClick = viewModel::onSaveDismiss) {
-                            Text(stringResource(R.string.common_cancel))
-                        }
-                        TextButton(onClick = viewModel::onSaveConfirm) {
-                            Text(stringResource(R.string.common_save))
-                        }
-                    }
+                },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
+            OutlinedTextField(
+                value = state.saveName,
+                onValueChange = viewModel::onSaveNameChange,
+                label = { Text(stringResource(R.string.common_name)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = viewModel::onSaveDismiss) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+                TextButton(onClick = viewModel::onSaveConfirm) {
+                    Text(stringResource(R.string.common_save))
                 }
             }
         }
+    }
+}
 
-        // Long-press manage menu: rename + delete.
-        state.managePreset?.let { preset ->
-            var renameText by remember(preset.id) { mutableStateOf(preset.name) }
-            ModalBottomSheet(onDismissRequest = viewModel::onMenuDismiss) {
-                Column(modifier = Modifier.padding(bottom = 24.dp)) {
-                    OutlinedTextField(
-                        value = renameText,
-                        onValueChange = { renameText = it },
-                        label = { Text(stringResource(R.string.common_rename)) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp),
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
-                        horizontalArrangement = Arrangement.End,
-                    ) {
-                        TextButton(onClick = { viewModel.onRenamePreset(renameText) }) {
-                            Text(stringResource(R.string.light_save_name))
-                        }
-                        Button(
-                            onClick = viewModel::onDeletePreset,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                            ),
-                            modifier = Modifier.padding(start = 8.dp),
-                        ) {
-                            Text(stringResource(R.string.light_delete_preset, preset.name))
-                        }
-                    }
+/** Long-press manage menu: rename + delete. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ManagePresetSheet(
+    preset: Preset,
+    viewModel: LightViewModel,
+) {
+    var renameText by remember(preset.id) { mutableStateOf(preset.name) }
+    ModalBottomSheet(onDismissRequest = viewModel::onMenuDismiss) {
+        Column(modifier = Modifier.padding(bottom = 24.dp)) {
+            OutlinedTextField(
+                value = renameText,
+                onValueChange = { renameText = it },
+                label = { Text(stringResource(R.string.common_rename)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = { viewModel.onRenamePreset(renameText) }) {
+                    Text(stringResource(R.string.light_save_name))
+                }
+                Button(
+                    onClick = viewModel::onDeletePreset,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    ),
+                    modifier = Modifier.padding(start = 8.dp),
+                ) {
+                    Text(stringResource(R.string.light_delete_preset, preset.name))
                 }
             }
         }

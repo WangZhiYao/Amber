@@ -2,6 +2,7 @@ package cn.floriax.amber.core.ble
 
 import android.annotation.SuppressLint
 import android.util.Log
+import cn.floriax.amber.core.ble.protocol.toHexDisplay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -15,7 +16,6 @@ import no.nordicsemi.android.kotlin.ble.core.data.BleGattProperty
 import no.nordicsemi.android.kotlin.ble.core.data.BleWriteType
 import no.nordicsemi.android.kotlin.ble.core.data.GattConnectionState
 import no.nordicsemi.android.kotlin.ble.core.data.util.DataByteArray
-import cn.floriax.amber.core.ble.protocol.toHexDisplay
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**

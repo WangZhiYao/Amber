@@ -72,7 +72,13 @@ class DeviceManagerCoordinator(
     fun startScan() {
         if (_state.value.scanning) return
         if (!scanner.isBluetoothEnabled) {
-            _state.update { it.copy(scanFailed = true, scanning = false, scanResults = emptyList()) }
+            _state.update {
+                it.copy(
+                    scanFailed = true,
+                    scanning = false,
+                    scanResults = emptyList()
+                )
+            }
             return
         }
         _state.update { it.copy(scanning = true, scanResults = emptyList(), scanFailed = false) }

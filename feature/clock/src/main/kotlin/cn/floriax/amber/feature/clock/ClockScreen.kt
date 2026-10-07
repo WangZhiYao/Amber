@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -102,6 +103,61 @@ fun ClockScreen(
         }
     }
 
+    ClockSideEffectHandler(
+        viewModel = viewModel,
+        onEnableBluetooth = {
+            enableBluetoothLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+        },
+    )
+
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            AmberTopBar(
+                title = stringResource(R.string.tab_clock),
+                actions = {
+                    ClockConnectionPill(
+                        state = state,
+                        onOpenDevices = onOpenDevices,
+                        permissionLauncher = permissionLauncher,
+                        viewModel = viewModel,
+                    )
+                },
+            )
+        },
+        // Status bar inset is consumed by the outer Scaffold.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            TimeSyncCard(state = state, connected = connected, viewModel = viewModel)
+            PowerTimerCard(state = state, connected = connected, viewModel = viewModel)
+            AlarmCard(state = state, connected = connected, viewModel = viewModel)
+            DisplayCard(state = state, connected = connected, viewModel = viewModel)
+        }
+    }
+}
+
+/**
+ * Maps one-shot [ClockSideEffect]s to toasts; Bluetooth-off hands off to
+ * [onEnableBluetooth] (the system enable dialog, owned by the screen).
+ *
+ * @author WangZhiYao
+ * @since 2026/10/7
+ */
+@Composable
+private fun ClockSideEffectHandler(
+    viewModel: ClockViewModel,
+    onEnableBluetooth: () -> Unit,
+) {
+    val context = LocalContext.current
+    val resources = LocalResources.current
     viewModel.collectSideEffect { effect ->
         when (effect) {
             ClockSideEffect.NotConnected -> Toast.makeText(
@@ -134,193 +190,214 @@ fun ClockScreen(
                 Toast.LENGTH_SHORT,
             ).show()
 
-            ClockSideEffect.BluetoothOff -> enableBluetoothLauncher.launch(
-                Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE),
+            ClockSideEffect.BluetoothOff -> onEnableBluetooth()
+        }
+    }
+}
+
+/**
+ * Connection pill: the manual retry entry when disconnected (asking for
+ * permissions first), otherwise it opens device management.
+ *
+ * @author WangZhiYao
+ * @since 2026/10/7
+ */
+@Composable
+private fun ClockConnectionPill(
+    state: ClockUiState,
+    onOpenDevices: () -> Unit,
+    permissionLauncher: ActivityResultLauncher<Array<String>>,
+    viewModel: ClockViewModel,
+) {
+    val context = LocalContext.current
+    ConnectionPill(
+        label = if (state.scanning) {
+            stringResource(R.string.connection_scanning)
+        } else {
+            connectionLabel(state.connection, state.deviceName)
+        },
+        dotColor = connectionDotColor(state.connection),
+        // Disconnected (including failed reconnection): the pill is
+        // the manual retry entry; otherwise it opens device management.
+        onClick = {
+            if (state.connection != ConnectionState.DISCONNECTED) {
+                onOpenDevices()
+            } else if (context.hasBlePermissions()) {
+                viewModel.onRetryConnect()
+            } else {
+                permissionLauncher.launch(requiredBlePermissions())
+            }
+        },
+        modifier = Modifier.padding(end = 12.dp),
+    )
+}
+
+/** Time sync card: last-sync stamp and manual sync button. */
+@Composable
+private fun TimeSyncCard(
+    state: ClockUiState,
+    connected: Boolean,
+    viewModel: ClockViewModel,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = stringResource(R.string.clock_sync_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = stringResource(R.string.clock_sync_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
+            state.lastSyncAt?.let {
+                Text(
+                    text = stringResource(
+                        R.string.clock_last_sync,
+                        stringResource(R.string.clock_today, it.formatSyncTime()),
+                    ),
+                )
+            }
+            Button(
+                onClick = viewModel::syncTime,
+                enabled = connected && !state.syncing,
+                modifier = Modifier.padding(top = 4.dp),
+            ) {
+                Text(
+                    text = stringResource(
+                        if (state.syncing) {
+                            R.string.clock_syncing
+                        } else {
+                            R.string.clock_sync_now
+                        },
+                    ),
+                )
+            }
+        }
+    }
+}
+
+/** Power timer card: on/off times with enable switches. */
+@Composable
+private fun PowerTimerCard(
+    state: ClockUiState,
+    connected: Boolean,
+    viewModel: ClockViewModel,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.clock_timer_card),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            TimerRow(
+                label = stringResource(R.string.clock_power_on),
+                time = state.timers.powerOn,
+                enabled = state.switches.powerOnEnabled,
+                connected = connected,
+                onTimeChange = { viewModel.setTimer(TimerKind.POWER_ON, it) },
+                onEnabledChange = { viewModel.setSwitch(SwitchField.POWER_ON, it) },
+            )
+            TimerRow(
+                label = stringResource(R.string.clock_power_off),
+                time = state.timers.powerOff,
+                enabled = state.switches.powerOffEnabled,
+                connected = connected,
+                onTimeChange = { viewModel.setTimer(TimerKind.POWER_OFF, it) },
+                onEnabledChange = { viewModel.setSwitch(SwitchField.POWER_OFF, it) },
             )
         }
     }
+}
 
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            AmberTopBar(
-                title = stringResource(R.string.tab_clock),
-                actions = {
-                    ConnectionPill(
-                        label = if (state.scanning) {
-                            stringResource(R.string.connection_scanning)
-                        } else {
-                            connectionLabel(state.connection, state.deviceName)
-                        },
-                        dotColor = connectionDotColor(state.connection),
-                        // Disconnected (including failed reconnection): the pill is
-                        // the manual retry entry; otherwise it opens device management.
-                        onClick = {
-                            if (state.connection != ConnectionState.DISCONNECTED) {
-                                onOpenDevices()
-                            } else if (context.hasBlePermissions()) {
-                                viewModel.onRetryConnect()
-                            } else {
-                                permissionLauncher.launch(requiredBlePermissions())
-                            }
-                        },
-                        modifier = Modifier.padding(end = 12.dp),
-                    )
-                },
+/** Alarm card. */
+@Composable
+private fun AlarmCard(
+    state: ClockUiState,
+    connected: Boolean,
+    viewModel: ClockViewModel,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = stringResource(R.string.clock_alarm_card),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
             )
-        },
-        // Status bar inset is consumed by the outer Scaffold.
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-    ) { padding ->
+            TimerRow(
+                label = stringResource(R.string.clock_alarm_card),
+                time = state.timers.alarm,
+                enabled = state.switches.alarmEnabled,
+                connected = connected,
+                onTimeChange = { viewModel.setTimer(TimerKind.ALARM, it) },
+                onEnabledChange = { viewModel.setSwitch(SwitchField.ALARM, it) },
+            )
+        }
+    }
+}
+
+/** Display card: hour format, colon blink, mute, remote lock. */
+@Composable
+private fun DisplayCard(
+    state: ClockUiState,
+    connected: Boolean,
+    viewModel: ClockViewModel,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            // Time sync card.
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = stringResource(R.string.clock_sync_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        text = stringResource(R.string.clock_sync_hint),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline,
-                    )
-                    state.lastSyncAt?.let {
-                        Text(
-                            text = stringResource(
-                                R.string.clock_last_sync,
-                                stringResource(R.string.clock_today, it.formatSyncTime()),
-                            ),
-                        )
-                    }
-                    Button(
-                        onClick = viewModel::syncTime,
-                        enabled = connected && !state.syncing,
-                        modifier = Modifier.padding(top = 4.dp),
-                    ) {
-                        Text(
-                            text = stringResource(
-                                if (state.syncing) {
-                                    R.string.clock_syncing
-                                } else {
-                                    R.string.clock_sync_now
-                                },
-                            ),
-                        )
-                    }
-                }
+            Text(
+                text = stringResource(R.string.clock_display_card),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = stringResource(R.string.clock_hour_format))
+                Spacer(modifier = Modifier.weight(1f))
+                FilterChip(
+                    selected = !state.switches.hour12,
+                    onClick = { viewModel.setHourFormat(false) },
+                    label = { Text(stringResource(R.string.clock_24_hour)) },
+                    enabled = connected,
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                FilterChip(
+                    selected = state.switches.hour12,
+                    onClick = { viewModel.setHourFormat(true) },
+                    label = { Text(stringResource(R.string.clock_12_hour)) },
+                    enabled = connected,
+                )
             }
-
-            // Power timer card.
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.clock_timer_card),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    TimerRow(
-                        label = stringResource(R.string.clock_power_on),
-                        time = state.timers.powerOn,
-                        enabled = state.switches.powerOnEnabled,
-                        connected = connected,
-                        onTimeChange = { viewModel.setTimer(TimerKind.POWER_ON, it) },
-                        onEnabledChange = { viewModel.setSwitch(SwitchField.POWER_ON, it) },
-                    )
-                    TimerRow(
-                        label = stringResource(R.string.clock_power_off),
-                        time = state.timers.powerOff,
-                        enabled = state.switches.powerOffEnabled,
-                        connected = connected,
-                        onTimeChange = { viewModel.setTimer(TimerKind.POWER_OFF, it) },
-                        onEnabledChange = { viewModel.setSwitch(SwitchField.POWER_OFF, it) },
-                    )
-                }
-            }
-
-            // Alarm card.
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = stringResource(R.string.clock_alarm_card),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    TimerRow(
-                        label = stringResource(R.string.clock_alarm_card),
-                        time = state.timers.alarm,
-                        enabled = state.switches.alarmEnabled,
-                        connected = connected,
-                        onTimeChange = { viewModel.setTimer(TimerKind.ALARM, it) },
-                        onEnabledChange = { viewModel.setSwitch(SwitchField.ALARM, it) },
-                    )
-                }
-            }
-
-            // Display card: hour format, colon blink, mute, remote lock.
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.clock_display_card),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = stringResource(R.string.clock_hour_format))
-                        Spacer(modifier = Modifier.weight(1f))
-                        FilterChip(
-                            selected = !state.switches.hour12,
-                            onClick = { viewModel.setHourFormat(false) },
-                            label = { Text(stringResource(R.string.clock_24_hour)) },
-                            enabled = connected,
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        FilterChip(
-                            selected = state.switches.hour12,
-                            onClick = { viewModel.setHourFormat(true) },
-                            label = { Text(stringResource(R.string.clock_12_hour)) },
-                            enabled = connected,
-                        )
-                    }
-                    SwitchRow(
-                        label = stringResource(R.string.clock_colon_blink),
-                        checked = state.switches.colonBlink,
-                        connected = connected,
-                        onChange = { viewModel.setSwitch(SwitchField.COLON_BLINK, it) },
-                    )
-                    SwitchRow(
-                        label = stringResource(R.string.clock_mute),
-                        checked = state.switches.mute,
-                        connected = connected,
-                        onChange = { viewModel.setSwitch(SwitchField.MUTE, it) },
-                    )
-                    SwitchRow(
-                        label = stringResource(R.string.clock_lock_remote),
-                        checked = state.switches.lockRemote,
-                        connected = connected,
-                        onChange = { viewModel.setSwitch(SwitchField.LOCK_REMOTE, it) },
-                    )
-                    Text(
-                        text = stringResource(R.string.clock_lock_remote_hint),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline,
-                    )
-                }
-            }
+            SwitchRow(
+                label = stringResource(R.string.clock_colon_blink),
+                checked = state.switches.colonBlink,
+                connected = connected,
+                onChange = { viewModel.setSwitch(SwitchField.COLON_BLINK, it) },
+            )
+            SwitchRow(
+                label = stringResource(R.string.clock_mute),
+                checked = state.switches.mute,
+                connected = connected,
+                onChange = { viewModel.setSwitch(SwitchField.MUTE, it) },
+            )
+            SwitchRow(
+                label = stringResource(R.string.clock_lock_remote),
+                checked = state.switches.lockRemote,
+                connected = connected,
+                onChange = { viewModel.setSwitch(SwitchField.LOCK_REMOTE, it) },
+            )
+            Text(
+                text = stringResource(R.string.clock_lock_remote_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
         }
     }
 }

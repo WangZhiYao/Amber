@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="tab_settings">设置</string>
 
     <!-- Device card -->
@@ -27,7 +27,8 @@
     <string name="debug_copy">复制 / 导出</string>
     <string name="debug_manual_send">手动发帧</string>
     <string name="debug_input_hint">7F / 99 / 16 / 23 · 14 字节</string>
-    <string name="debug_input_placeholder">23-00-00-00-00-00-00-00-00-00-00-00-00-E8</string>
+    <!-- Hyphens are frame byte separators, not typography -->
+    <string name="debug_input_placeholder" tools:ignore="TypographyDashes">23-00-00-00-00-00-00-00-00-00-00-00-00-E8</string>
     <string name="debug_send">发送</string>
     <string name="debug_copied">已复制</string>
     <string name="debug_sent">已发送</string>

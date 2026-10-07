@@ -20,7 +20,12 @@ class ChooseWriteTypeTest {
     fun `有WRITE属性选确认写`() {
         assertEquals(
             BleWriteType.DEFAULT,
-            chooseWriteType(listOf(BleGattProperty.PROPERTY_WRITE, BleGattProperty.PROPERTY_NOTIFY)),
+            chooseWriteType(
+                listOf(
+                    BleGattProperty.PROPERTY_WRITE,
+                    BleGattProperty.PROPERTY_NOTIFY
+                )
+            ),
         )
     }
 
@@ -28,7 +33,12 @@ class ChooseWriteTypeTest {
     fun `仅WRITE_NO_RESPONSE选无响应写`() {
         assertEquals(
             BleWriteType.NO_RESPONSE,
-            chooseWriteType(listOf(BleGattProperty.PROPERTY_WRITE_NO_RESPONSE, BleGattProperty.PROPERTY_NOTIFY)),
+            chooseWriteType(
+                listOf(
+                    BleGattProperty.PROPERTY_WRITE_NO_RESPONSE,
+                    BleGattProperty.PROPERTY_NOTIFY
+                )
+            ),
         )
     }
 

@@ -125,9 +125,11 @@ fun DebugScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Card(modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier

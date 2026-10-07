@@ -97,7 +97,9 @@ class DeviceManagerCoordinatorTest {
 
         // The saved device has its connect entry in "my devices"; the scan
         // section lists new devices only.
-        assertEquals(listOf("AA:BB:CC:DD:EE:FF"), coordinator.state.value.scanResults.map { it.mac })
+        assertEquals(
+            listOf("AA:BB:CC:DD:EE:FF"),
+            coordinator.state.value.scanResults.map { it.mac })
     }
 
     @Test
