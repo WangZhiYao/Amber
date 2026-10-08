@@ -36,16 +36,16 @@
 
 ## 技术栈
 
-| 项    | 值                                                     |
-|------|-------------------------------------------------------|
-| 语言   | Kotlin 2.4.20（JVM 21）                                 |
-| UI   | Jetpack Compose + Material 3                          |
-| 架构   | 多模块 + MVI（feature / domain / data / core / shared 五层） |
-| 导航   | Navigation 3                                          |
-| 依赖注入 | Hilt                                                  |
-| 蓝牙   | Nordic BLE Kotlin Client                              |
-| 持久化  | Room（设备记忆、灯光预设）                                       |
-| 最低系统 | Android 9（API 28）                                     |
+| 项       | 值                                                           |
+|----------|--------------------------------------------------------------|
+| 语言     | Kotlin 2.4.20（JVM 21）                                      |
+| UI       | Jetpack Compose + Material 3                                 |
+| 架构     | 多模块 + MVI（feature / domain / data / core / shared 五层） |
+| 导航     | Navigation 3                                                 |
+| 依赖注入 | Hilt                                                         |
+| 蓝牙     | Nordic BLE Kotlin Client                                     |
+| 持久化   | Room（设备记忆、灯光预设）                                   |
+| 最低系统 | Android 9（API 28）                                          |
 
 ## 构建
 

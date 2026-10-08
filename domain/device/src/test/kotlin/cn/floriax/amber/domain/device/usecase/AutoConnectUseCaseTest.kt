@@ -85,6 +85,7 @@ class AutoConnectUseCaseTest {
             connectedMac = device.mac
             return Result.success(Unit)
         }
+
         override fun disconnect() = Unit
         override suspend fun sendBacklight(config: Backlight) = Result.success(Unit)
         override suspend fun sendTimers(timers: TimeConfig) = Result.success(Unit)

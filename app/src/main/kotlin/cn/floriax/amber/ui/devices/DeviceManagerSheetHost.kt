@@ -7,11 +7,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import cn.floriax.amber.domain.device.DeviceManagerCoordinator
 import cn.floriax.amber.domain.device.model.DiscoveredDevice
 import cn.floriax.amber.shared.designsystem.component.DeviceManagerSheet
+import cn.floriax.amber.shared.designsystem.component.DeviceManagerSheetActions
+import cn.floriax.amber.shared.designsystem.component.DeviceManagerSheetUiState
 import cn.floriax.amber.shared.designsystem.component.SavedDeviceUi
 import cn.floriax.amber.shared.designsystem.component.ScanResultUi
 
@@ -73,32 +75,36 @@ fun DeviceManagerSheetHost(
     }
 
     DeviceManagerSheet(
-        devices = state.devices.map {
-            SavedDeviceUi(
-                alias = it.alias,
-                advertisedName = it.advertisedName,
-                mac = it.mac,
-                isDefault = it.isDefault,
-                connected = it.mac == state.connectedMac,
-            )
-        },
-        scanResults = state.scanResults.map {
-            ScanResultUi(it.name, it.mac, it.rssi)
-        },
-        scanning = state.scanning,
-        scanFailed = state.scanFailed,
+        state = DeviceManagerSheetUiState(
+            devices = state.devices.map {
+                SavedDeviceUi(
+                    alias = it.alias,
+                    advertisedName = it.advertisedName,
+                    mac = it.mac,
+                    isDefault = it.isDefault,
+                    connected = it.mac == state.connectedMac,
+                )
+            },
+            scanResults = state.scanResults.map {
+                ScanResultUi(it.name, it.mac, it.rssi)
+            },
+            scanning = state.scanning,
+            scanFailed = state.scanFailed,
+        ),
         onDismiss = ::dismiss,
-        onConnect = { result ->
-            coordinator.connectDevice(DiscoveredDevice(result.name, result.mac, result.rssi))
-            dismiss()
-        },
-        onConnectSaved = { ui ->
-            state.devices.firstOrNull { it.mac == ui.mac }?.let(coordinator::connectSaved)
-        },
-        onDisconnect = coordinator::disconnect,
-        onSetDefault = coordinator::setDefault,
-        onRename = coordinator::rename,
-        onDelete = coordinator::delete,
-        onRescan = ::startScanOrEnable,
+        actions = DeviceManagerSheetActions(
+            onConnect = { result ->
+                coordinator.connectDevice(DiscoveredDevice(result.name, result.mac, result.rssi))
+                dismiss()
+            },
+            onConnectSaved = { ui ->
+                state.devices.firstOrNull { it.mac == ui.mac }?.let(coordinator::connectSaved)
+            },
+            onDisconnect = coordinator::disconnect,
+            onSetDefault = coordinator::setDefault,
+            onRename = coordinator::rename,
+            onDelete = coordinator::delete,
+            onRescan = ::startScanOrEnable,
+        ),
     )
 }

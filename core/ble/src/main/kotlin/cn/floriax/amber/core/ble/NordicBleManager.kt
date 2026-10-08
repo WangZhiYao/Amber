@@ -17,12 +17,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onCompletion
-import kotlin.coroutines.cancellation.CancellationException
 import no.nordicsemi.android.kotlin.ble.client.main.callback.ClientBleGatt
 import no.nordicsemi.android.kotlin.ble.scanner.BleScanner
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Advertised names the scan filter accepts.
@@ -51,14 +51,14 @@ private val CHARACTERISTIC_ALIASES = setOf("fff1", "ffe1")
 internal fun isGlowClockService(uuid: UUID): Boolean =
     with(uuid.toString().lowercase()) {
         length == 36 && endsWith(BASE_UUID_SUFFIX) &&
-            substring(0, 8) in SERVICE_ALIASES.map { "0000$it" }
+                substring(0, 8) in SERVICE_ALIASES.map { "0000$it" }
     }
 
 /** Whether the UUID is the glow clock's write+notify characteristic alias. */
 internal fun isGlowClockCharacteristic(uuid: UUID): Boolean =
     with(uuid.toString().lowercase()) {
         length == 36 && endsWith(BASE_UUID_SUFFIX) &&
-            substring(0, 8) in CHARACTERISTIC_ALIASES.map { "0000$it" }
+                substring(0, 8) in CHARACTERISTIC_ALIASES.map { "0000$it" }
     }
 
 /**
@@ -128,6 +128,7 @@ class NordicBleManager @Inject constructor(
             // not a failure.
             cause == null || cause is CancellationException ->
                 Log.i(TAG, "Scan stopped")
+
             else -> Log.e(TAG, "Scan failed: ${cause.message}", cause)
         }
     }
@@ -146,12 +147,16 @@ class NordicBleManager @Inject constructor(
             Log.i(TAG, "Services discovered: [$uuids]")
             val service = services.services.firstOrNull { isGlowClockService(it.uuid) }
                 ?: throw BleException("Glow clock service not found (discovered: [$uuids])")
-            val characteristic = service.characteristics.firstOrNull { isGlowClockCharacteristic(it.uuid) }
-                ?: throw BleException(
-                "Write/notify characteristic not found (service ${service.uuid}: " +
-                    "[${service.characteristics.joinToString { it.uuid.toString() }}])",
+            val characteristic =
+                service.characteristics.firstOrNull { isGlowClockCharacteristic(it.uuid) }
+                    ?: throw BleException(
+                        "Write/notify characteristic not found (service ${service.uuid}: " +
+                                "[${service.characteristics.joinToString { it.uuid.toString() }}])",
+                    )
+            Log.i(
+                TAG,
+                "Characteristic ${characteristic.uuid}, properties ${characteristic.properties}"
             )
-            Log.i(TAG, "Characteristic ${characteristic.uuid}, properties ${characteristic.properties}")
             val conn = NordicConnection(gatt, characteristic, scope)
             // Subscribe BEFORE returning: the caller writes the query frame
             // right after, and the CCCD write must precede it on the wire

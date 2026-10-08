@@ -37,7 +37,7 @@ interface ClockDeviceDao : BaseDao<ClockDeviceEntity> {
     /** Sets the default flag on one row only when no default exists yet. */
     @Query(
         "UPDATE clock_devices SET is_default = 1 WHERE mac = :mac " +
-            "AND NOT EXISTS(SELECT 1 FROM clock_devices WHERE is_default = 1)"
+                "AND NOT EXISTS(SELECT 1 FROM clock_devices WHERE is_default = 1)"
     )
     suspend fun setDefaultIfNone(mac: String)
 

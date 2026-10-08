@@ -77,6 +77,10 @@ class ClockRepositoryImpl(
 
     override val deviceState: StateFlow<DeviceState> get() = projector.deviceState
 
+    /** Current [DeviceState] snapshot; every read sees the latest value. */
+    private val currentDeviceState: DeviceState
+        get() = projector.deviceState.value
+
     /** Single write entry of DeviceState: report projection + orchestration state + optimistic updates + reserved bytes/handshake bits. */
     private val projector = DeviceStateProjector(logger)
 
@@ -117,7 +121,7 @@ class ClockRepositoryImpl(
     private fun onBluetoothOn() {
         val mac = currentMac ?: return
         if (!wanted || userInitiatedClose) return
-        if (projector.deviceState.value.connection != ConnectionState.DISCONNECTED) return
+        if (currentDeviceState.connection != ConnectionState.DISCONNECTED) return
         val gen = ++generation
         projector.update {
             it.copy(connection = ConnectionState.CONNECTING, deviceMac = mac)
@@ -142,7 +146,7 @@ class ClockRepositoryImpl(
         // A connection to the same device is already in flight/established: do not
         // re-initiate — concurrent connects would leak the previous GATT on the device.
         if (device.mac == currentMac &&
-            projector.deviceState.value.connection in ONGOING_STATES
+            currentDeviceState.connection in ONGOING_STATES
         ) {
             return Result.success(Unit)
         }
@@ -260,42 +264,53 @@ class ClockRepositoryImpl(
         // skipped due to "a sequence is already running".
         projector.update { it.copy(connection = ConnectionState.RECONNECTING) }
         if (reconnectJob?.isActive == true) return   // already running: don't restart the backoff
-        reconnectJob = scope.launch {
-            for (backoffMs in RECONNECT_BACKOFF_MS) {
-                if (!stillWanted(gen)) return@launch
-                sleeper(backoffMs)
-                if (!stillWanted(gen)) return@launch
-                // Reconnection counts only when the handshake succeeded AND the
-                // state really is CONNECTED — if the link drops right after the
-                // handshake (e.g. the auto-sync write fails) we stay RECONNECTING
-                // and continue the backoff instead of ending the sequence.
-                if (tryConnect(mac, gen) &&
-                    projector.deviceState.value.connection == ConnectionState.CONNECTED
-                ) {
-                    return@launch
-                }
-                // This attempt failed: stay RECONNECTING, continue the backoff.
-                projector.update { it.copy(connection = ConnectionState.RECONNECTING) }
-            }
-            if (gen != generation) return@launch
-            // Fast backoff exhausted: fall back to disconnected (manual retry
-            // available), slow retries continue in the background.
+        reconnectJob = scope.launch { runReconnectBackoff(mac, gen) }
+    }
+
+    /**
+     * The reconnect backoff sequence: the fast backoff (1s/2s/4s, at most 3
+     * attempts), then — never giving up — the slow 30s retry loop. Returns
+     * when reconnected or superseded ([gen] no longer current / user
+     * disconnected).
+     */
+    private suspend fun runReconnectBackoff(mac: String, gen: Long) {
+        for (backoffMs in RECONNECT_BACKOFF_MS) {
+            if (!backoffElapsed(gen, backoffMs)) return
+            if (reconnectSucceeded(mac, gen)) return
+            // This attempt failed: stay RECONNECTING, continue the backoff.
+            projector.update { it.copy(connection = ConnectionState.RECONNECTING) }
+        }
+        if (gen != generation) return
+        // Fast backoff exhausted: fall back to disconnected (manual retry
+        // available), slow retries continue in the background.
+        projector.update { it.copy(connection = ConnectionState.DISCONNECTED) }
+        logger.sys("Reconnect exhausted, retrying every ${RECONNECT_SLOW_MS / 1_000}s")
+        while (true) {
+            if (!backoffElapsed(gen, RECONNECT_SLOW_MS)) return
+            projector.update { it.copy(connection = ConnectionState.RECONNECTING) }
+            if (reconnectSucceeded(mac, gen)) return
             projector.update { it.copy(connection = ConnectionState.DISCONNECTED) }
-            logger.sys("Reconnect exhausted, retrying every ${RECONNECT_SLOW_MS / 1_000}s")
-            while (true) {
-                if (!stillWanted(gen)) return@launch
-                sleeper(RECONNECT_SLOW_MS)
-                if (!stillWanted(gen)) return@launch
-                projector.update { it.copy(connection = ConnectionState.RECONNECTING) }
-                if (tryConnect(mac, gen) &&
-                    projector.deviceState.value.connection == ConnectionState.CONNECTED
-                ) {
-                    return@launch
-                }
-                projector.update { it.copy(connection = ConnectionState.DISCONNECTED) }
-            }
         }
     }
+
+    /**
+     * Waits out one reconnect backoff interval; false when the sequence was
+     * superseded (generation/user intent changed) before or during the wait.
+     */
+    private suspend fun backoffElapsed(gen: Long, backoffMs: Long): Boolean {
+        if (!stillWanted(gen)) return false
+        sleeper(backoffMs)
+        return stillWanted(gen)
+    }
+
+    /**
+     * One reconnect attempt. Reconnection counts only when the handshake
+     * succeeded AND the state really is CONNECTED — if the link drops right
+     * after the handshake (e.g. the auto-sync write fails) the caller stays
+     * in its backoff instead of ending the sequence.
+     */
+    private suspend fun reconnectSucceeded(mac: String, gen: Long): Boolean =
+        tryConnect(mac, gen) && currentDeviceState.connection == ConnectionState.CONNECTED
 
     /** Whether the reconnect sequence is still valid: generation unchanged, still wanted, no user disconnect. */
     private fun stillWanted(gen: Long): Boolean =
@@ -367,7 +382,7 @@ class ClockRepositoryImpl(
     )
 
     override suspend fun syncTime(): Result<Unit> {
-        val s = projector.deviceState.value
+        val s = currentDeviceState
         return writeTimeFrame(
             TimeFrame.now(now(), s.timers.powerOff, s.timers.powerOn, s.timers.alarm),
         )
@@ -406,7 +421,7 @@ class ClockRepositoryImpl(
         frame: ByteArray,
         optimistic: (() -> Unit)? = null,
     ): Result<Unit> {
-        if (projector.deviceState.value.connection != ConnectionState.CONNECTED) {
+        if (currentDeviceState.connection != ConnectionState.CONNECTED) {
             return Result.failure(ClockException.NotConnected())
         }
         var target: ConnectionSession? = null
